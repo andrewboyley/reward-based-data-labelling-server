@@ -5,9 +5,9 @@ name: Server CI
 
 on:
   push:
-    branches: [ main, develop, create_api ]
+    branches: [ create_api ]
   pull_request:
-    branches: [  main, develop, create_api ]
+    branches: [ create_api ]
 
 jobs:
   build:
