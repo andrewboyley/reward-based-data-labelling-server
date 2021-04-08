@@ -14,11 +14,12 @@ const UserSchema: any = new schema({
   // surname
   surname: {
     type: String,
-    required: [true, "Surame not provided"],
+    required: [true, "Surname not provided"],
   },
   // email address, acts as identifier
   email: {
     type: String,
+    required: [true, "Email not provided"],
     unique: [true, "Email already is use"],
   },
   // user password, hashed using bcrypt

@@ -12,6 +12,8 @@ import mongoose from "mongoose";
 mongoose.connect("mongodb://localhost/jinx", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  useCreateIndex: true,
+  useFindAndModify: false,
 });
 mongoose.Promise = global.Promise;
 // todo ---- end
@@ -30,7 +32,6 @@ app.use(function (
   res: express.Response,
   next: express.NextFunction
 ) {
-  // console.log(err)
   res.status(422).send({ error: err.message });
 });
 

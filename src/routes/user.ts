@@ -30,7 +30,7 @@ router.post(
   baseUrl,
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // validate email
-    const validEmail: Boolean = validateEmail(req.body.email);
+    // const validEmail: Boolean = validateEmail(req.body.email);
 
     // shortcut - does new, save together
     // return Promise
