@@ -1,22 +1,14 @@
 import express from "express";
+import dbHandler from "./db-handler";
 
 // use environment port number if it exists - used for listening for requests
-const port: any = process.env.port || 4000;
+const port: string = process.env.port || "4000";
 
 // set up express app
 const app: any = express();
 
-// set up database
-// todo ---- start
-import mongoose from "mongoose";
-mongoose.connect("mongodb://localhost/jinx", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  useCreateIndex: true,
-  useFindAndModify: false,
-});
-mongoose.Promise = global.Promise;
-// todo ---- end
+// set up database (if test env, will do in each test)
+if (process.env.NODE_ENV !== "test") dbHandler.connect();
 
 // set up middleware to parse body
 app.use(express.json());
@@ -38,5 +30,5 @@ app.use(function (
 // listen for requests (listen on port)
 // export to allow testing
 export default app.listen(port, () => {
-  console.log(`listening for requests on ${port}`);
+  console.log(`Listening for requests on ${port}`);
 });
