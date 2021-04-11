@@ -1,13 +1,12 @@
-
 name: API CI
 
-# Controls when the action will run. 
+# Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ create_api ]
+    branches: [develop]
   pull_request:
-    branches: [ create_api ]
+    branches: [develop]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -18,18 +17,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '14.x'
-          
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build
-      run: npm run build --if-present
-      
-    - name: Test
-      run: npm run tests
+      - uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: "14.x"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Test
+        run: npm run tests
