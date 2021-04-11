@@ -15,7 +15,7 @@ app.use(express.json());
 
 // use the routes defined in /src/routes
 // "/api" is a prefix
-app.use("/api", require("./routes/user"));
+app.use("/api", require("./routes/user.route"));
 
 // error handling middleware
 app.use(function (

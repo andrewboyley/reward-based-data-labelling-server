@@ -1,6 +1,6 @@
 import express from "express";
 import { CallbackError } from "mongoose";
-import User from "../models/user";
+import User from "../models/user.model";
 
 // set up a router
 const router = express.Router();

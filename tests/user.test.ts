@@ -40,6 +40,7 @@ describe("POST /user", () => {
     }
   */
 
+  // todo - write this test
   // insert successful
   // it("All user fields present, including profile picture", (done: any) => {
   //   // returns user object
@@ -283,16 +284,4 @@ describe("POST /user", () => {
       .then(() => requester.close())
       .finally(() => done());
   });
-
-  // todo - create the following tests
-  /* 
-    // All input provided - with profile pic
-    // All input except profile pic - accept
-    // All expect a required field(s)
-    // Duplicate email
-    // Invalid email - client side
-
-    // Illegal characters (client-side? YES)
-    // Password meets criteria (client-side? YES)
-  */
 });
