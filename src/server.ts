@@ -28,7 +28,7 @@ app.use(function (
   res: express.Response,
   next: express.NextFunction
 ) {
-  res.status(422).send({ error: err.message });
+  res.status(400).send({ error: err.message });
 });
 
 // listen for requests (listen on port)
