@@ -1,18 +1,12 @@
 import express from "express";
+import { CallbackError } from "mongoose";
 import User from "../models/user";
-
-// todo add db functionality - need User model
 
 // set up a router
 const router = express.Router();
 
 // define the base enpoint for all requests to users
 const baseUrl = "/user";
-
-// todo validate email
-function validateEmail(email: String): Boolean {
-  return email.includes("@");
-}
 
 // get list of users from db
 // todo GET user
@@ -23,23 +17,72 @@ router.get(
   }
 );
 
+// todo GET user login
+router.get(baseUrl + "/login/", () => {
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Access the provided 'email' and 'password' query parameters
+    const email = req.query.email;
+    const password = req.query.password;
+    console.log(email, password);
+    res.send({ type: `GET user ${req.query.email}` });
+  };
+});
+
 // insert a new user
 // todo POST user
 // todo check valid
 router.post(
   baseUrl,
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // validate email
-    // const validEmail: Boolean = validateEmail(req.body.email);
+    // check that the required data values are present
+    const requiredFields: string[] = [
+      "firstName",
+      "surname",
+      "email",
+      "password",
+    ];
 
-    // shortcut - does new, save together
-    // return Promise
-    User.create(req.body)
-      .then((user: any) => {
-        // return the ninja
-        res.send(user);
-      })
-      .catch(next); // move onto next middleware
+    const body = req.body;
+
+    // build an error message if required fields are missing
+    let errorMessage: string = "Missing the following field(s): ";
+    let missingFields: boolean = false;
+    for (let field of requiredFields) {
+      if (body.hasOwnProperty(field) === false) {
+        missingFields = true;
+        errorMessage += field + ", ";
+      }
+    }
+
+    // if required fields are missing, then return an error
+    if (missingFields) {
+      errorMessage = errorMessage.slice(0, -2);
+      res.status(422).json({ error: errorMessage });
+      return;
+    }
+
+    // check if email exists
+    User.exists(
+      { email: body.email },
+      function (err: CallbackError, exists: boolean) {
+        if (exists) {
+          // if it does exist, send an error
+          res.status(422).json({ error: "This user has already been created" });
+        } else {
+          // shortcut - does new, save together
+          // return Promise
+          User.create(body)
+            .then((user: any) => {
+              // return the ninja
+              // remove the password field
+              user = user.toObject();
+              delete user.password;
+              res.status(201).send(user);
+            })
+            .catch(next); // move onto next middleware
+        }
+      }
+    );
   }
 );
 

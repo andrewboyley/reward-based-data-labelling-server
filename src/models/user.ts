@@ -30,7 +30,7 @@ const UserSchema: any = new schema({
   // relative (to "/") file path to image
   profilePicturePath: {
     type: String,
-    default: "generic.jpg", // use a generic image if one is not provided
+    default: "generic.jpeg", // use a generic image if one is not provided
   },
 });
 

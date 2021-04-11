@@ -32,7 +32,7 @@ async function connect(): Promise<void> {
   // make mongoose use normal promise library
   mongoose.Promise = global.Promise;
 
-  console.log(`Connected to database at ${uri}`);
+  console.log(`Connected to database`);
 }
 
 // close the db. If in a test env, using mongod so make sure db is dropped as well
