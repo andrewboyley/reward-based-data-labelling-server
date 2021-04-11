@@ -1,5 +1,6 @@
 import express from "express";
 import dbHandler from "./db-handler";
+import cors from "cors";
 
 // use environment port number if it exists - used for listening for requests
 const port: string = process.env.port || "4000";
@@ -9,6 +10,9 @@ const app: any = express();
 
 // set up database (if test env, will do in each test)
 if (process.env.NODE_ENV !== "test") dbHandler.connect();
+
+// middleware - allow cross origin requests (from frontend)
+app.use(cors());
 
 // set up middleware to parse body
 app.use(express.json());
