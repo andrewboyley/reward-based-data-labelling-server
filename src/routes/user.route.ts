@@ -1,6 +1,7 @@
 import express from "express";
 import { CallbackError } from "mongoose";
 import User from "../models/user.model";
+import hash from "../hash";
 
 // set up a router
 const router = express.Router();
@@ -37,34 +38,49 @@ router.get(
 
     // Access the provided 'email' and 'password' query parameters
     const email = req.query.email;
-    const password = req.query.password;
+    const plaintextPassword: string = String(req.query.password);
 
-    // Check if user exists
-    User.exists(
-      { email: email, password: password },
-      function (err: CallbackError, exists: boolean) {
-        if (exists) {
-          // if it does exist, send back user object
-          User.findOne(
-            { email: email, password: password },
-            function (err: CallbackError, user: any) {
-              // return the user
-              // remove the password field
-              if (err !== null) {
-                res.status(400).json({ error: "An error occurred" });
-              } else {
-                user = user.toObject();
+    // check if a user with this email exists
+    User.exists({ email: email }, (err: CallbackError, exists: boolean) => {
+      if (err !== null) {
+        // if there was an error, return
+        res.status(400).json({ error: "An error occurred" });
+        return;
+      }
+
+      if (exists) {
+        // the email is valid - get corresponding user object, check password and return user if valid
+        User.findOne({ email: email }, (err: CallbackError, user: any) => {
+          if (err !== null) {
+            // if there was an error, return
+            res.status(400).json({ error: "An error occurred" });
+            return;
+          }
+
+          // get the stored user password
+          user = user.toObject();
+          const hashedPassword: string = String(user.password);
+          // check if the given password matches the hashed password
+          hash.comparePassword(
+            plaintextPassword,
+            hashedPassword,
+            (isValid: boolean) => {
+              if (isValid) {
+                // the password is correct - return user object sans password
                 delete user.password;
                 res.status(200).json(user);
+              } else {
+                // the password is incorrect - return error
+                res.status(401).json({ error: "Login credentials invalid" });
               }
             }
           );
-        } else {
-          // doesn't exist - return error
-          res.status(401).json({ error: "Login credentials invalid" });
-        }
+        });
+      } else {
+        // doesn't exist - return error
+        res.status(401).json({ error: "Login credentials invalid" });
       }
-    );
+    });
   }
 );
 
@@ -116,17 +132,22 @@ router.post(
           // if it does exist, send an error
           res.status(422).json({ error: "This user has already been created" });
         } else {
-          // shortcut - does new, save together
-          // return Promise
-          User.create(body)
-            .then((user: any) => {
-              // return the user
-              // remove the password field
-              user = user.toObject();
-              delete user.password;
-              res.status(201).send(user);
-            })
-            .catch(next); // move onto next middleware
+          // hash the password
+          hash.hashPassword(body.password, (hash: string) => {
+            body.password = hash;
+
+            // shortcut - does new, save together
+            // return Promise
+            User.create(body)
+              .then((user: any) => {
+                // return the user
+                // remove the password field
+                user = user.toObject();
+                delete user.password;
+                res.status(201).json(user);
+              })
+              .catch(next); // move onto next middleware
+          });
         }
       }
     );

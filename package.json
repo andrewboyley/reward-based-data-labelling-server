@@ -19,11 +19,13 @@
   },
   "homepage": "https://github.com/andrewboyley/reward-based-data-labelling-server#readme",
   "dependencies": {
+    "bcrypt": "^5.0.1",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "mongoose": "^5.12.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^3.0.1",
     "@types/chai": "^4.2.16",
     "@types/cors": "^2.8.10",
     "@types/express": "^4.17.11",
