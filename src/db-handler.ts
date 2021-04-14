@@ -2,7 +2,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 
 // real database connection
-const dbConnectionString = "mongodb://localhost/jinx";
+const dbConnectionString = process.env.DATABASE || "mongodb://localhost/jinx";
 
 let mongod: MongoMemoryServer;
 

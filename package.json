@@ -5,6 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "tsc && nodemon",
+    "build": "tsc",
     "tests": "export NODE_ENV=test && mocha --recursive --timeout 5000 --exit -r ts-node/register tests/**/*.test.ts",
     "lint": "npx eslint . --ext .js,.jsx,.ts,.tsx --fix"
   },
