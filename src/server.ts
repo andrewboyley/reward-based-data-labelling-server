@@ -20,7 +20,7 @@ app.use(express.json());
 // use the routes defined in /src/routes
 // "/api" is a prefix
 app.use("/api", require("./modules/user/user.route"));
-
+app.use("/api", require("./modules/LabelledItem/item.route"));
 // error handling middleware
 app.use(function (
   err: any,
