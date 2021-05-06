@@ -6,9 +6,13 @@ const schema: any = mongoose.Schema;
 // create user schema
 const LabelledItemModel: any = new schema({
   // need to define attributes
+	job:{
+		type:Schema.Types.ObjectId,
+		ref:"Job"
+	},
   label: {
     type: String,
-    required: [true, "Label not provided"],
+		default: "not_labelled"
   },
   //For images, path to image
   value: {

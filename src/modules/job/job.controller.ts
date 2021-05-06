@@ -1,6 +1,6 @@
 var mongoose = require("mongoose");
 import { Request, Response, NextFunction } from "express";
-var JobModel = require("./job.model");
+import JobModel from "./job.model"
 
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {

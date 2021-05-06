@@ -15,13 +15,7 @@ const JobSchema: any = new Schema(
       type: Date,
       default: Date.now,
     },
-    items: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "LabelledItem",
-        required: [true, "Labelled items not provided"],
-      },
-    ],
+
     author: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -36,4 +30,4 @@ const JobSchema: any = new Schema(
 // params = (collectionName - automatically pluralise, schema)}
 var JobModel = mongoose.model("Job", JobSchema);
 
-module.exports = JobModel;
+export default JobModel;
