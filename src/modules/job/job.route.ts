@@ -1,6 +1,5 @@
-const JobController = require("./job.controller");
+import JobController from "./job.controller";
 import express from "express";
-import { CallbackError } from "mongoose";
 
 // set up a router
 const router = express.Router();

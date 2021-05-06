@@ -20,9 +20,11 @@ app.use(express.json());
 // use the routes defined in /src/modules
 // "/api" is a prefix
 const apiPrefix = "/api";
-app.use(`${apiPrefix}/user`, require("./modules/user/user.route"));
-app.use(`${apiPrefix}/job`, require("./modules/job/job.route"));
+var indexRouter = express.Router();
+indexRouter.use("/user", require("./modules/user/user.route"));
+indexRouter.use("/job", require("./modules/job/job.route"));
 
+app.use("/api", indexRouter);
 // error handling middleware
 app.use(function (
   err: any,

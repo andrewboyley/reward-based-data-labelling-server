@@ -5,7 +5,7 @@ var JobModel = require("./job.model");
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
-    if (!req.body.content) {
+    if (!req.body) {
       return res.status(400).send({
         message: "Job content can not be empty",
       });
@@ -60,7 +60,7 @@ let JobController = {
   },
 
   update: async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.body.content) {
+    if (!req.body) {
       return res.status(400).send({
         message: "Job content can not be empty",
       });
