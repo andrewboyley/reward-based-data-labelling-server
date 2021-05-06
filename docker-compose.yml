@@ -1,0 +1,32 @@
+version: "3.2"
+
+services:
+  api:
+    image: jinx/express-server
+    restart: always
+    ports:
+      - 4000:4000
+    depends_on:
+      - mongodb
+    external_links:
+      - mongo
+    environment:
+      - NODE_ENV=development
+      - DATABASE=mongodb://mongodatabase:27017/jinx
+    networks:
+      - webappnetwork
+
+  mongodb:
+    image: mongo
+    restart: always
+    container_name: mongodatabase
+    ports:
+      - 27017:27017
+    command: mongod
+    volumes:
+      - ./mongo_data:/data/db
+    networks:
+      - webappnetwork
+networks:
+  webappnetwork:
+    driver: bridge

@@ -17,10 +17,16 @@ app.use(cors());
 // set up middleware to parse body
 app.use(express.json());
 
-// use the routes defined in /src/routes
+// use the routes defined in /src/modules
 // "/api" is a prefix
-app.use("/api", require("./modules/user/user.route"));
-app.use("/api", require("./modules/LabelledItem/item.route"));
+const apiPrefix = "/api";
+var indexRouter = express.Router();
+indexRouter.use("/user", require("./modules/user/user.route"));
+indexRouter.use("/job", require("./modules/job/job.route"));
+indexRouter.use("/api", require("./modules/LabelledItem/item.route"));
+
+
+app.use("/api", indexRouter);
 // error handling middleware
 app.use(function (
   err: any,
