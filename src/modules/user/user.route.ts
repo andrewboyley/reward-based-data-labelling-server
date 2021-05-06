@@ -7,12 +7,11 @@ import hash from "../../hash";
 const router = express.Router();
 
 // define the base enpoint for all requests to users
-const baseUrl = "/user";
 
 // check if user exists - if yes, return user object
 // HAS to come BEFORE the next get request - /login will match both, but :id will only match second one and bypass this one
 router.get(
-  baseUrl + "/login",
+  "/login",
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // check that the required data values are present
     const requiredFields: string[] = ["email", "password"];
@@ -87,7 +86,7 @@ router.get(
 // get list of users from db
 // todo GET user
 router.get(
-  baseUrl + "/:id",
+  "/:id",
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     res.send({ type: `GET user ${req.params.id}` });
   }
@@ -95,7 +94,7 @@ router.get(
 
 // insert a new user
 router.post(
-  baseUrl,
+  "/",
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // check that the required data values are present
     const requiredFields: string[] = [
@@ -157,7 +156,7 @@ router.post(
 // update user
 // todo PUT user
 router.put(
-  baseUrl + "/:id",
+  "/:id",
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     res.send({ type: `PUT user ${req.params.id}` });
   }
@@ -166,7 +165,7 @@ router.put(
 // delete user
 // todo DELETE user
 router.delete(
-  baseUrl + "/:id",
+  "/:id",
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     res.send({ type: `DELETE user ${req.params.id}` });
   }

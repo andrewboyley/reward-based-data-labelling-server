@@ -34,7 +34,4 @@ const JobSchema: any = new schema({
 // create model
 // name = model. Generally use capital letter
 // params = (collectionName - automatically pluralise, schema)}
-const Job = mongoose.model("Job", JobSchema);
-
-// make available to other files
-export default Job;
+export default mongoose.model("Job", JobSchema);
