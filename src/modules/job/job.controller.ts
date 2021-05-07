@@ -27,8 +27,8 @@ let JobController = {
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {
     JobModel.find()
-      .then((notes: any) => {
-        res.send(notes);
+      .then((job: any) => {
+        res.send(job);
       })
       .catch((err: any) => {
         res.status(500).send({
