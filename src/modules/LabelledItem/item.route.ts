@@ -30,6 +30,7 @@ var upload = multer({ storage: storage });
 
 const router = express.Router();
 
+router.get("/", LabelledItem.findAll);
 router.post("/", upload.array("image"), LabelledItem.addItem);
 
 module.exports = router;

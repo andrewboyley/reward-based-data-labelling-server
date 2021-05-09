@@ -35,6 +35,20 @@ let ItemController = {
         });
     }
   },
+
+	findAll: async (req: Request, res: Response, next: NextFunction) => {
+		LabelledItemModel.find({job: req.query.jobID})
+			.then((items: any) => {
+				res.send(items);
+			})
+			.catch((err: any) => {
+				res.status(500).send({
+					message: err.message || "Some error occurred while retrieving jobs.",
+				});
+			});
+	},
 };
+
+
 
 export default ItemController;
