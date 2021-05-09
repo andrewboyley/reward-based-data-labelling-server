@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import LabelledItemModel from "./item.model";
 
 let ItemController = {
@@ -10,6 +10,7 @@ let ItemController = {
     var newLabelledItemObject;
 
     for (var i = 0; i < req.files.length; i++) {
+
       // creates the new labelled item json object
       newLabelledItemObject = {
         value: (req.files as Express.Multer.File[])[i].filename,

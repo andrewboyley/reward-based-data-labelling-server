@@ -1,5 +1,6 @@
 import multer from "multer";
-import express, { Request } from "express";
+import fs from 'fs';
+import express, {Express, Request } from "express";
 import LabelledItem from "./item.controller";
 import { nanoid } from "nanoid";
 
@@ -7,7 +8,11 @@ import { nanoid } from "nanoid";
 
 var storage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => {
-    cb(null, "uploads/jobs/");
+		let fileDirectory ="uploads/jobs/"+req.body.jobID; 
+		if(!fs.existsSync(fileDirectory)){
+			fs.mkdirSync(fileDirectory);
+		}
+    cb(null, fileDirectory);
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
     var filename: string = "";
