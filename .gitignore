@@ -4,7 +4,7 @@ node_modules
 mongo_data
 
 # user files
-uploads
+uploads/jobs/*
 
 
 # local env files
