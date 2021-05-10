@@ -2,10 +2,12 @@
 node_modules
 /dist
 mongo_data
-
+.nyc_output
 # user files
 uploads/jobs/*
-
+!uploads/jobs/.jobs
+coverage
+.coveralls.yml
 
 # local env files
 .env.local
