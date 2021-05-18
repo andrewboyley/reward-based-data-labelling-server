@@ -30,7 +30,7 @@ let AuthController = {
                 delete user.password;
 
                 var token = jwt.sign({ id: user._id }, process.env.SECRET, {
-                  expiresIn: 30, // expires in 24 hours
+                  expiresIn: 1800, // expires in 24 hours
                 });
 
                 res.status(201).json({ user: user, token: token });
@@ -44,20 +44,13 @@ let AuthController = {
     );
   },
 
-  getID: async (req: Request, res: Response, next: NextFunction) => {
-    var token = req.headers["x-access-token"];
-    if (!token)
-      return res
-        .status(401)
-        .send({ auth: false, message: "No token provided." });
-
-    jwt.verify(token, process.env.SECRET, (err: any, decoded: any) => {
+  getID: async (req: any, res: Response, next: NextFunction) => {
+    User.findById(req.userId, (err: any, user: any) => {
       if (err)
-        return res
-          .status(500)
-          .send({ auth: false, message: "Failed to authenticate token." });
+        return res.status(500).send("There was a problem finding the user.");
+      if (!user) return res.status(404).send("No user found.");
 
-      res.status(200).send(decoded);
+      res.status(200).send({ id: req.userId });
     });
   },
 
@@ -75,7 +68,7 @@ let AuthController = {
             delete user.password;
 
             var token = jwt.sign({ id: user._id }, process.env.SECRET, {
-              expiresIn: 30, // expires in 24 hours
+              expiresIn: 1800, // expires in 24 hours
             });
 
             res.status(200).json({ user: user, token: token });
