@@ -1,20 +1,22 @@
 var jwt = require("jsonwebtoken");
 import { Express, Request, Response, NextFunction } from "express";
 
-
-//TODO: figure out what to do with the req:any
-function verifyToken(req: any, res: Response, next: NextFunction) {
-  var token = req.headers["x-access-token"];
-  if (!token) return res.status(403).send({ message: "No token provided." });
+function verifyToken(req: Request, res: Response, next: NextFunction) {
+  var token;
+  try {
+    token = req.headers["authorization"];
+    if (!token) return res.status(403).send({ message: "No token provided." });
+    token = token.split(" ")[1];
+  } catch (err: any) {
+    return res.status(422).send({ message: "Malformed token header" });
+  }
 
   jwt.verify(token, process.env.SECRET, function (err: any, decoded: any) {
     if (err)
-      return res
-        .status(500)
-        .send({message: "Failed to authenticate token." });
+      return res.status(500).send({ message: "Failed to authenticate token." });
 
     // if everything good, save to request for use in other routes
-    req.userId = decoded.id;
+    req.body.userId = decoded.id;
     next();
   });
 }

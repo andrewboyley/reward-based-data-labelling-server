@@ -11,13 +11,24 @@ let AuthController = {
   register: async (req: Request, res: Response, next: NextFunction) => {
     User.exists(
       { email: req.body.email },
-      function (err: CallbackError, exists: boolean) {
+      function (err: any, exists: boolean) {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
         if (exists) {
           // if it does exist, send an error
-          res.status(422).json({ error: "This user has already been created" });
+          return res
+            .status(422)
+            .json({ error: "This user has already been created" });
         } else {
           // hash the password
+          if (!req.body.password) {
+            return res.status(422).json({ error: "No password provided" });
+          }
           hash.hashPassword(req.body.password, (hash: string) => {
+            if (err) {
+              res.status(500).json({ error: err.message });
+            }
             req.body.password = hash;
 
             // shortcut - does new, save together
@@ -28,12 +39,14 @@ let AuthController = {
                 // remove the password field
                 user = user.toObject();
                 delete user.password;
+                delete user.__v;
 
                 var token = jwt.sign({ id: user._id }, process.env.SECRET, {
                   expiresIn: 1800, // expires in 24 hours
                 });
-
-                res.status(201).json({ user: user, token: token });
+                delete user._id;
+                user.token = token;
+                res.status(201).json(user);
               })
               .catch((err) => {
                 res.status(500).send(err.message);
@@ -44,34 +57,39 @@ let AuthController = {
     );
   },
 
-  getID: async (req: any, res: Response, next: NextFunction) => {
-    User.findById(req.userId, (err: any, user: any) => {
+  getID: async (req: Request, res: Response, next: NextFunction) => {
+    User.findById(req.body.userId, (err: any, user: any) => {
       if (err)
         return res.status(500).send("There was a problem finding the user.");
       if (!user) return res.status(404).send("No user found.");
 
-      res.status(200).send({ id: req.userId });
+      res.status(200).send({ id: req.body.userId });
     });
   },
 
   login: async (req: Request, res: Response, next: NextFunction) => {
     User.findOne({ email: req.body.email }, function (err: any, user: any) {
-      if (err) return res.status(500).send(err.message);
-      if (!user) return res.status(404).send("No user found.");
+      if (err) return res.status(500).json({ error: err.message });
+      if (!user) return res.status(404).json({ error: "No user found." });
 
+      if (!req.body.password) {
+        return res.status(422).json({ error: "No password provided" });
+      }
       hash.comparePassword(
         req.body.password,
         user.password,
         (isValid: boolean) => {
           if (isValid) {
+            user = user.toObject();
             // the password is correct - return user object sans password
-            delete user.password;
-
             var token = jwt.sign({ id: user._id }, process.env.SECRET, {
               expiresIn: 1800, // expires in 24 hours
             });
-
-            res.status(200).json({ user: user, token: token });
+            delete user.password;
+            delete user.__v;
+            delete user._id;
+            user.token = token;
+            res.status(200).json(user);
           } else {
             // the password is incorrect - return error
             res.status(401).json({ error: "Login credentials invalid" });
