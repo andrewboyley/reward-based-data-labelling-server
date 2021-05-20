@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import JobModel from "./job.model";
 
+const numItemsAggregated = 1;
+
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
@@ -192,6 +194,39 @@ let JobController = {
         return res.status(500).send({
           message: "Could not delete job with id " + req.params.id,
         });
+      });
+  },
+
+  updateItemAggregation: async (
+    jobId: Mongoose.Types.ObjectId,
+    itemId: Mongoose.Types.ObjectId
+  ) => {
+    // check length of current aggregation list
+    // if it is less than our threshold, add the item, otherwise continue
+    JobModel.findById(jobId)
+      .then((job: any) => {
+        if (!job) {
+          // job isn't found
+          return Promise.reject();
+        }
+        // check the lenth of aggregate items
+        console.log(job.aggregate_items.length);
+        if (job.aggregate_items.length < numItemsAggregated) {
+          // add the new item to the aggregate list
+          JobModel.findByIdAndUpdate(
+            jobId,
+            { $push: { aggregate_items: itemId } },
+            { new: true }
+          ).then((res: any) => {
+            // any logic after aggregate list is updated goes here
+            return Promise.resolve();
+          });
+        } else {
+          return Promise.resolve();
+        }
+      })
+      .catch((err: any) => {
+        return Promise.reject(err);
       });
   },
 };

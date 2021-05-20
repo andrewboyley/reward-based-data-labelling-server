@@ -28,17 +28,17 @@ const JobSchema: any = new Schema(
       {
         type: Schema.Types.ObjectId,
         ref: "User",
-      }
-    ]
-    //Uses the labelledItem to embed images for the summary of the job
+      },
+    ],
 
-    // summary_images: [
-    //   {
-    //     type: Schema.Types.ObjectId,
-    //     ref: "LabelledItem",
-    //     required: [false, "No images uploaded"]
-    //   },
-    // ]
+    //Uses the labelledItem to embed images for the summary of the job
+    aggregate_items: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "LabelledItem",
+        required: [false, "No images uploaded"],
+      },
+    ],
   },
   { versionKey: false }
 );
