@@ -86,6 +86,35 @@ let JobController = {
         });
       });
   },
+
+  addLabelers: async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.body) {
+      return res.status(400).send({
+        message: "Data not recieved correctly",
+      });
+    }
+
+    JobModel.findByIdAndUpdate(req.params.id, {$push: {labellers: req.body.user} }, { new: true })
+      .then((job: any) => {
+        if (!job) {
+          return res.status(404).send({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
+        res.send({ type: `Added user to job ${ req.params.id } ` });
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          return res.status(404).send({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
+        return res.status(500).send({
+          message: "Error updating job with id " + req.params.id,
+        });
+      });
+  },
+  
   delete: async (req: Request, res: Response, next: NextFunction) => {
     JobModel.findByIdAndRemove(req.params.id)
       .then((job: any) => {

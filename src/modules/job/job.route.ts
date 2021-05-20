@@ -8,6 +8,8 @@ router.get("/", JobController.findAll);
 router.get("/:id", JobController.findOne);
 router.post("/", JobController.create);
 router.put("/:id", JobController.update);
+router.put("/addLabeller/:id",JobController.addLabelers);
+
 router.delete("/:id", JobController.delete);
 
 module.exports = router;

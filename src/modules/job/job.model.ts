@@ -1,4 +1,6 @@
 import mongoose, { Schema } from "mongoose";
+import LabelledItem from "../LabelledItem/item.model";
+
 // create user schema
 const JobSchema: any = new Schema(
   {
@@ -21,6 +23,22 @@ const JobSchema: any = new Schema(
       ref: "User",
       required: [true, "Author not provided"],
     },
+
+    labellers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      }
+    ]
+    //Uses the labelledItem to embed images for the summary of the job
+
+    // summary_images: [
+    //   {
+    //     type: Schema.Types.ObjectId,
+    //     ref: "LabelledItem",
+    //     required: [false, "No images uploaded"]
+    //   },
+    // ]
   },
   { versionKey: false }
 );
