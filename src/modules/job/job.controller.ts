@@ -1,6 +1,6 @@
-var mongoose = require("mongoose");
 import { Request, Response, NextFunction } from "express";
-import JobModel from "./job.model"
+import Mongoose, { Schema } from "mongoose";
+import JobModel from "./job.model";
 
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
@@ -59,6 +59,59 @@ let JobController = {
       });
   },
 
+  // find available jobs - jobs that aren't mine and I haven't accepted
+  // need user id
+  findAvailable: async (req: Request, res: Response, next: NextFunction) => {
+    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+
+    // find all jobs where user is not the author
+    // AND where user is not labeller
+    JobModel.find({
+      author: { $ne: userObjectId },
+      labellers: { $ne: userObjectId },
+    })
+      .then((jobs: any) => {
+        res.json(jobs);
+      })
+      .catch((err: any) => {
+        return res.status(400).json({ error: "Something went wrong" });
+      });
+  },
+
+  // find my job - jobs that I uploaded
+  // need user id
+  findAuthored: async (req: Request, res: Response, next: NextFunction) => {
+    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+
+    // find all jobs where user is the author
+    JobModel.find({
+      author: userObjectId,
+    })
+      .then((jobs: any) => {
+        res.json(jobs);
+      })
+      .catch((err: any) => {
+        return res.status(400).json({ error: "Something went wrong" });
+      });
+  },
+
+  // find accepted jobs - jobs that aren't mine and I have accepted
+  // need user id
+  findAccepted: async (req: Request, res: Response, next: NextFunction) => {
+    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+
+    // find all jobs where user is in labellers
+    JobModel.find({
+      labellers: userObjectId,
+    })
+      .then((jobs: any) => {
+        res.json(jobs);
+      })
+      .catch((err: any) => {
+        return res.status(400).json({ error: "Something went wrong" });
+      });
+  },
+
   update: async (req: Request, res: Response, next: NextFunction) => {
     if (!req.body) {
       return res.status(400).send({
@@ -87,21 +140,26 @@ let JobController = {
       });
   },
 
-  addLabelers: async (req: Request, res: Response, next: NextFunction) => {
+  addLabeller: async (req: Request, res: Response, next: NextFunction) => {
     if (!req.body) {
       return res.status(400).send({
         message: "Data not recieved correctly",
       });
     }
 
-    JobModel.findByIdAndUpdate(req.params.id, {$push: {labellers: req.body.user} }, { new: true })
+    JobModel.findByIdAndUpdate(
+      req.params.id,
+      { $push: { labellers: req.body.user } },
+      { new: true }
+    )
       .then((job: any) => {
         if (!job) {
           return res.status(404).send({
             message: "Job not found with id " + req.params.id,
           });
         }
-        res.send({ type: `Added user to job ${ req.params.id } ` });
+        // return successful update - 204 means no body (not required for PUT)
+        res.status(204).send();
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
@@ -114,7 +172,7 @@ let JobController = {
         });
       });
   },
-  
+
   delete: async (req: Request, res: Response, next: NextFunction) => {
     JobModel.findByIdAndRemove(req.params.id)
       .then((job: any) => {
