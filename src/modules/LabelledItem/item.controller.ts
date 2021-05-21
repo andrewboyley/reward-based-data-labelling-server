@@ -3,6 +3,8 @@ import Mongoose from "mongoose";
 import LabelledItemModel from "./item.model";
 import JobController from "../job/job.controller";
 
+const numItemsAggregated = 2;
+
 let ItemController = {
   addItem: async (req: Request, res: Response, next: NextFunction) => {
     // get job Id from request body
@@ -10,6 +12,9 @@ let ItemController = {
 
     // gets file uploaded from request and create new labelled item object
     var newLabelledItemObject;
+
+    var aggImages = Array<any> ();
+    var storedImages = Array<any> ();
 
     for (var i = 0; i < req.files.length; i++) {
       // creates the new labelled item json object
@@ -20,19 +25,19 @@ let ItemController = {
 
       // create a mongoose labelled item object
       let newLabelledItem = new LabelledItemModel(newLabelledItemObject);
+      
+      if(aggImages.length < numItemsAggregated){
+        aggImages.push(newLabelledItem);
+      }
+      
+
       // save the labelled item in the database
       newLabelledItem
         .save()
         .then((data: any) => {
-          // update item aggregation for this job
-
-          JobController.updateItemAggregation(
-            new Mongoose.Types.ObjectId(jobID),
-            data._id
-          ).then(() => {
-            // only send a successful response here, error is handled in the parent catch
-            res.status(200).send(data);
-          });
+          res.status(200).send(data);
+          storedImages.push(data);
+          
         })
         .catch((err: any) => {
           console.log(err.message);
@@ -42,6 +47,21 @@ let ItemController = {
           });
         });
     }
+
+    console.log("This is the stored data", storedImages);
+    // update item aggregation for this job
+
+    // for(var i = 0; i < aggImages.length; i++){
+    //   JobController.updateItemAggregation(
+    //     new Mongoose.Types.ObjectId(jobID),
+    //     aggImages[i]
+    //   ).then(() => {
+    //     // only send a successful response here, error is handled in the parent catch
+    //     res.status(200).send("OK");
+    //   });
+    // }
+
+    
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {
