@@ -11,6 +11,7 @@ let JobController = {
       });
     }
 
+    console.log(req.body)
     let newJob = new JobModel(req.body);
 
     newJob

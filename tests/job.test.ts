@@ -14,11 +14,19 @@ describe("GET /job", () => {
     const endpoint = "/api/job";
 
     // dummy user insert
-    const dataInsert: any = {
+    const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+    };
+    
+    // dummy job insert
+    let dataInsert: any = {
     title: "Some title",
     description: "Some description",
-    dateCreated: Date.now,
-    author: "60942b9c1878e068fc0cf954",  //////////////////////////////needs to be fixed 
+    //date created does not need to be inserted because it is not changable by user
+    author: "60942b9c1878e068fc0cf954",  //this get replaced later on
     labels: [],
     //reward: 1
     };
@@ -32,7 +40,26 @@ describe("GET /job", () => {
     beforeEach(async function () {
     await dbHandler.clear();
 
+    let authorID = ""
     // add a dummy user
+    await chai
+      .request(server)
+      .post("/api/user/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user)
+      .end((err: any, res: request.Response) => {
+        //getting the user ID
+        authorID = res.body._id;
+        dataInsert = {
+          title: "Some title",
+          description: "Some description",
+          //date created does not need to be inserted because it is not changable by user
+          author: authorID, 
+          labels: [],
+          //reward: 1
+          };
+      });
+    // add a dummy job
     await chai
         .request(server)
         .post(endpoint)
@@ -51,7 +78,6 @@ describe("GET /job", () => {
         "title": "A second job",
         "description": "Another job description",
         "author": "60942b9c1878e068fc0cf954",
-        "dateCreated": "2021-05-06T18:18:32.385Z"
     */
 
     // successful job retrieval of all jobs - return 200
@@ -60,12 +86,12 @@ describe("GET /job", () => {
 
     // get correct details
     const dataJob: any = {
-        title: dataInsert["A second job"],
-        description: dataInsert["Another job description"],
-        author: dataInsert["60942b9c1878e068fc0cf954"],
-        dateCreated: dataInsert["2021-05-06T18:18:32.385Z"],
-        labels: ["a"],
-        //reward: 1
+        title: dataInsert["title"],
+        description: dataInsert["description"],
+        author: dataInsert["author"],
+        //date created not affected by user input
+        labels: dataInsert["labels"],
+        //reward: dataInsert["reward"]
     };
 
     chai
@@ -75,6 +101,7 @@ describe("GET /job", () => {
         .query(dataJob)
         .end((err: any, res: request.Response) => {
         // check response (and property values where applicable)
+        
         expect(err).to.be.null;
         expect(res).to.have.status(200);
         expect(res).to.have.header(

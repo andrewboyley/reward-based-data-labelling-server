@@ -25,11 +25,11 @@ const JobSchema: any = new Schema(
       required: [true, "Label(s) required"],
       default: ["a", "b", "c"]
     },
-    /*rewards:{
+    rewards:{
       type: Number,
       required: [true, "Reward amount required"],
       default: 1
-    }*/
+    }
   },
   { versionKey: false }
 );
