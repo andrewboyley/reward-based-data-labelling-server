@@ -15,12 +15,10 @@ if (process.env.NODE_ENV !== "test") dbHandler.connect();
 app.use(cors());
 
 // set up express static
-app.use('/uploads',express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 
 // set up middleware to parse body
 app.use(express.json());
-
-
 
 // use the routes defined in /src/modules
 // "/api" is a prefix
@@ -30,7 +28,6 @@ indexRouter.use("/user", require("./modules/user/user.route"));
 indexRouter.use("/job", require("./modules/job/job.route"));
 indexRouter.use("/images", require("./modules/LabelledItem/item.route"));
 //indexRouter.use("/job", require("./modules/LabelledItem/item.route"));
-
 
 app.use("/api", indexRouter);
 // error handling middleware

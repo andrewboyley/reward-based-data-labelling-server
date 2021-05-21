@@ -1,4 +1,6 @@
 import mongoose, { Schema } from "mongoose";
+import LabelledItem from "../LabelledItem/item.model";
+
 // create user schema
 const JobSchema: any = new Schema(
   {
@@ -23,14 +25,36 @@ const JobSchema: any = new Schema(
     labels: {
       type: Array,
       required: [true, "Label(s) required"],
-      default: ["a", "b", "c"]
+      default: ["a", "b", "c"],
     },
-    /*rewards:{
+    rewards: {
       type: Number,
       required: [true, "Reward amount required"],
-      default: 1
-    }*/
+      default: 1,
+    },
+
+    labellers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    numLabellersRequired: {
+      type: Number,
+      required: [true, "Number of labellers not provided"],
+    },
+
+    //Uses the labelledItem to embed images for the summary of the job
+    aggregate_items: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "LabelledItem",
+        required: [false, "No images uploaded"],
+      },
+    ],
   },
+
   { versionKey: false }
 );
 

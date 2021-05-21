@@ -32,12 +32,6 @@ const UserSchema: any = new schema({
     type: String,
     default: "generic.jpeg", // use a generic image if one is not provided
   },
-  jobs: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: "Job",
-    },
-  ],
 });
 
 // create model
