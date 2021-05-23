@@ -13,8 +13,11 @@ describe("GET /job", () => {
   // endpoint
   const endpoint = "/api/job";
 
-  // dummy job inserted id
+  // dummy inserted ids
+  let authorID = "";
   let dummyJobId: string;
+  let dummyAcceptId: string;
+  let dummyAvailableId: string;
 
   // dummy user insert
   const user: any = {
@@ -29,9 +32,11 @@ describe("GET /job", () => {
     title: "Some title",
     description: "Some description",
     //date created does not need to be inserted because it is not changable by user
-    author: "60942b9c1878e068fc0cf954", //this get replaced later on
-    labels: [],
-    //reward: 1
+    author: "Replaced in a bit",
+    numLabellersRequired: 2,
+    labels: ["A"],
+    reward: 1,
+    labellers: ["f" + authorID.slice(1)],
   };
 
   // connect to in-memory db
@@ -43,7 +48,6 @@ describe("GET /job", () => {
   beforeEach(async function () {
     await dbHandler.clear();
 
-    let authorID = "";
     // add a dummy user
     let res: ChaiHttp.Response = await chai
       .request(server)
@@ -53,6 +57,9 @@ describe("GET /job", () => {
 
     //getting the user ID
     authorID = res.body._id;
+    dummyAcceptId = "f" + authorID.slice(1);
+    dummyAvailableId = "e" + authorID.slice(1);
+
     dataInsert = {
       title: "Some title",
       description: "Some description",
@@ -61,9 +68,10 @@ describe("GET /job", () => {
       numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
+      labellers: [],
     };
 
-    // add a dummy job
+    // add a dummy job - no labellers (so have available jobs)
     res = await chai
       .request(server)
       .post(endpoint)
@@ -71,6 +79,14 @@ describe("GET /job", () => {
       .send(dataInsert);
 
     dummyJobId = res.body._id;
+
+    // add another dummy job - with labeller (so have accepted jobs)
+    dataInsert.labellers = [dummyAcceptId];
+    res = await chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(dataInsert);
   });
 
   // disconnect from in-memory db
@@ -173,6 +189,92 @@ describe("GET /job", () => {
           "message",
           "Job not found with id " + wrongId
         );
+        done();
+      });
+  });
+
+  it("Retrives all authored jobs", (done: any) => {
+    // get all the jobs I made
+    chai
+      .request(server)
+      .get(endpoint + "/authored/" + authorID)
+      .set("Content-Type", "application/json; charset=utf-8")
+      // .query(dataJob)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response (and property values where applicable)
+        const body = res.body[0];
+        expect(err).to.be.null;
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(body).to.have.property("_id");
+        expect(body).to.have.property("title");
+        expect(body).to.have.property("description");
+        expect(body).to.have.property("author", authorID);
+        expect(body).to.have.property("dateCreated");
+        expect(body).to.have.property("labels");
+        done();
+      });
+  });
+
+  it("Retrieves all accepted jobs", (done: any) => {
+    // get all the jobs I accepted
+    chai
+      .request(server)
+      .get(endpoint + "/accepted/" + dummyAcceptId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      // .query(dataJob)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response (and property values where applicable)
+        const body = res.body[0];
+        expect(err).to.be.null;
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(body).to.have.property("_id");
+        expect(body).to.have.property("title");
+        expect(body).to.have.property("description");
+        expect(body).to.have.property("author");
+        expect(body).to.have.property("dateCreated");
+        expect(body).to.have.property("labels");
+        expect(body).to.have.property("labellers");
+        expect(body.labellers).to.contain(dummyAcceptId);
+        done();
+      });
+  });
+
+  it("Retrieves all available jobs", (done: any) => {
+    // get all the jobs I can accept (not mine, not accepted)
+    chai
+      .request(server)
+      .get(endpoint + "/available/" + dummyAvailableId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      // .query(dataJob)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response (and property values where applicable)
+        const body = res.body[0];
+        expect(err).to.be.null;
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(body).to.have.property("_id");
+        expect(body).to.have.property("title");
+        expect(body).to.have.property("description");
+        expect(body).to.have.property("author");
+        expect(body.author).to.not.equal(dummyAvailableId);
+        expect(body).to.have.property("dateCreated");
+        expect(body).to.have.property("labels");
+        expect(body).to.have.property("labellers");
+        expect(body.labellers).to.not.contain(dummyAvailableId);
         done();
       });
   });
