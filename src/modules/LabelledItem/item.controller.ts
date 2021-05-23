@@ -13,8 +13,8 @@ let ItemController = {
     // gets file uploaded from request and create new labelled item object
     var newLabelledItemObject;
 
-    var aggImages = Array<any> ();
-    var storedImages = Array<any> ();
+    var aggImages = Array<any>();
+    var storedImages = Array<any>();
 
     for (var i = 0; i < req.files.length; i++) {
       // creates the new labelled item json object
@@ -25,11 +25,10 @@ let ItemController = {
 
       // create a mongoose labelled item object
       let newLabelledItem = new LabelledItemModel(newLabelledItemObject);
-      
-      if(aggImages.length < numItemsAggregated){
+
+      if (aggImages.length < numItemsAggregated) {
         aggImages.push(newLabelledItem);
       }
-      
 
       // save the labelled item in the database
       newLabelledItem
@@ -37,7 +36,6 @@ let ItemController = {
         .then((data: any) => {
           res.status(200).send(data);
           storedImages.push(data);
-          
         })
         .catch((err: any) => {
           console.log(err.message);
@@ -48,7 +46,7 @@ let ItemController = {
         });
     }
 
-    console.log("This is the stored data", storedImages);
+    // console.log("This is the stored data", storedImages);
     // update item aggregation for this job
 
     // for(var i = 0; i < aggImages.length; i++){
@@ -60,8 +58,6 @@ let ItemController = {
     //     res.status(200).send("OK");
     //   });
     // }
-
-    
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {

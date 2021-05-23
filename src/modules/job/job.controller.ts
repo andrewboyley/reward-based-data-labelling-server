@@ -8,23 +8,29 @@ let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
     if (!req.body) {
-      return res.status(400).send({
+      return res.status(422).send({
         message: "Job content can not be empty",
       });
     }
 
-    console.log(req.body)
+    // console.log(req.body)
     let newJob = new JobModel(req.body);
 
     newJob
       .save()
       .then((data: any) => {
-        res.send(data);
+        res.status(201).send(data);
       })
       .catch((err: any) => {
-        res.status(500).send({
-          message: err.message || "Some error occurred while creating the job.",
-        });
+        if (err.message) {
+          res.status(422).send({
+            message: err.message,
+          });
+        } else {
+          res.status(500).send({
+            message: "Some error occurred while creating the job.",
+          });
+        }
       });
   },
 
@@ -211,7 +217,7 @@ let JobController = {
           return Promise.reject();
         }
         // check the lenth of aggregate items
-        console.log(job.aggregate_items.length);
+        // console.log(job.aggregate_items.length);
         if (job.aggregate_items.length < numItemsAggregated) {
           // add the new item to the aggregate list
           JobModel.findByIdAndUpdate(
