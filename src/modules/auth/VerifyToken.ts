@@ -13,7 +13,7 @@ function verifyToken(req: Request, res: Response, next: NextFunction) {
 
   jwt.verify(token, process.env.SECRET, function (err: any, decoded: any) {
     if (err)
-      return res.status(500).send({ message: "Failed to authenticate token." });
+      return res.status(401).send({ message: "Failed to authenticate token." });
 
     // if everything good, save to request for use in other routes
     req.body.userId = decoded.id;
