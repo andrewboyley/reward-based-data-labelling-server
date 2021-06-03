@@ -13,7 +13,9 @@ let JobController = {
       });
     }
 
-    // console.log(req.body)
+    req.body.author = req.body.userId;
+    delete req.body.userId;
+
     let newJob = new JobModel(req.body);
 
     newJob
@@ -71,7 +73,7 @@ let JobController = {
   // find available jobs - jobs that aren't mine and I haven't accepted
   // need user id
   findAvailable: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is not the author
     // AND where user is not labeller
@@ -90,7 +92,7 @@ let JobController = {
   // find my job - jobs that I uploaded
   // need user id
   findAuthored: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is the author
     JobModel.find({
@@ -107,7 +109,7 @@ let JobController = {
   // find accepted jobs - jobs that aren't mine and I have accepted
   // need user id
   findAccepted: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is in labellers
     JobModel.find({
@@ -158,7 +160,7 @@ let JobController = {
 
     JobModel.findByIdAndUpdate(
       req.params.id,
-      { $push: { labellers: req.body.user } },
+      { $push: { labellers: req.body.userId } },
       { new: true }
     )
       .then((job: any) => {

@@ -42,7 +42,7 @@ let AuthController = {
                 delete user.__v;
 
                 var token = jwt.sign({ id: user._id }, process.env.SECRET, {
-                  expiresIn: 1800, // expires in 24 hours
+                  expiresIn: 1800, // expires in 30 min
                 });
                 delete user._id;
                 user.token = token;
@@ -83,7 +83,7 @@ let AuthController = {
             user = user.toObject();
             // the password is correct - return user object sans password
             var token = jwt.sign({ id: user._id }, process.env.SECRET, {
-              expiresIn: 1800, // expires in 24 hours
+              expiresIn: 1800, // expires in 30 min
             });
             delete user.password;
             delete user.__v;
