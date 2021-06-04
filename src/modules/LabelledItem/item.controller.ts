@@ -31,35 +31,32 @@ let ItemController = {
       }
 
       // save the labelled item in the database
-      newLabelledItem
-        .save()
-        .then((data: any) => {
-          res.status(200).send(data);
-          
-        })
-        .catch((err: any) => {
-          console.log(err.message);
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while creating the job.",
-          });
+      try {
+        const itemResponse = await newLabelledItem.save();
+        // res.status(200).send(itemResponse);
+      } catch (err) {
+        console.log(err.message);
+        res.status(500).send({
+          message: err.message || "Some error occurred while creating the job.",
         });
+        return;
+      }
     }
+
+    res.status(200).send("OK");
 
     // console.log("This is the aggregated data", aggImages);
     // update item aggregation for this job
 
-    for(var i = 0; i < aggImages.length; i++){
-      JobController.updateItemAggregation(
-        new Mongoose.Types.ObjectId(jobID),
-        aggImages[i]
-      ).then(() => {
-        // only send a successful response here, error is handled in the parent catch
-        res.status(200).send("OK");
-      });
-    }
-
-    
+    // for(var i = 0; i < aggImages.length; i++){
+    //   JobController.updateItemAggregation(
+    //     new Mongoose.Types.ObjectId(jobID),
+    //     aggImages[i]
+    //   ).then(() => {
+    //     // only send a successful response here, error is handled in the parent catch
+    //     res.status(200).send("OK");
+    //   });
+    // }
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {
