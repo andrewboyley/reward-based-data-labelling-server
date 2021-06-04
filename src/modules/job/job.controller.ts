@@ -56,6 +56,23 @@ let JobController = {
             message: "Job not found with id " + req.params.id,
           });
         }
+        // can the current user accept this job
+        const currentUserId = req.body.userId;
+
+        job = job.toObject();
+        const labellers = Object.values(job.labellers);
+        let isLabeller = false;
+        for (let labeller of labellers) {
+          if (labeller == currentUserId) {
+            isLabeller = true;
+            break;
+          }
+        }
+        job.canAccept =
+          !isLabeller &&
+          job.labellers.length < job.numLabellersRequired &&
+          job.author != currentUserId;
+
         res.send(job);
       })
       .catch((err: any) => {
@@ -80,6 +97,7 @@ let JobController = {
     JobModel.find({
       author: { $ne: userObjectId },
       labellers: { $ne: userObjectId },
+      // $expr: { $lt: ["$labellers.length", "$numLabellersRequired"] }, // first < second
     })
       .then((jobs: any) => {
         res.json(jobs);

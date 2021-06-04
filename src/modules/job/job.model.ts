@@ -43,7 +43,7 @@ const JobSchema: any = new Schema(
     numLabellersRequired: {
       type: Number,
       required: [true, "Number of labellers not provided"],
-      default: 1,
+      default: 5,
     },
 
     //Uses the labelledItem to embed images for the summary of the job
