@@ -13,8 +13,8 @@ let ItemController = {
     // gets file uploaded from request and create new labelled item object
     var newLabelledItemObject;
 
-    var aggImages = Array<any> ();
-    var storedImages = Array<any> ();
+    var aggImages = Array<any>();
+    var storedImages = Array<any>();
 
     for (var i = 0; i < req.files.length; i++) {
       // creates the new labelled item json object
@@ -25,11 +25,10 @@ let ItemController = {
 
       // create a mongoose labelled item object
       let newLabelledItem = new LabelledItemModel(newLabelledItemObject);
-      
-      if(aggImages.length < numItemsAggregated){
+
+      if (aggImages.length < numItemsAggregated) {
         aggImages.push(newLabelledItem);
       }
-      
 
       // save the labelled item in the database
       newLabelledItem

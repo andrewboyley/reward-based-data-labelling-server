@@ -8,22 +8,31 @@ let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
     if (!req.body) {
-      return res.status(400).send({
+      return res.status(422).send({
         message: "Job content can not be empty",
       });
     }
+
+    req.body.author = req.body.userId;
+    delete req.body.userId;
 
     let newJob = new JobModel(req.body);
 
     newJob
       .save()
       .then((data: any) => {
-        res.send(data);
+        res.status(201).send(data);
       })
       .catch((err: any) => {
-        res.status(500).send({
-          message: err.message || "Some error occurred while creating the job.",
-        });
+        if (err.message) {
+          res.status(422).send({
+            message: err.message,
+          });
+        } else {
+          res.status(500).send({
+            message: "Some error occurred while creating the job.",
+          });
+        }
       });
   },
 
@@ -64,7 +73,7 @@ let JobController = {
   // find available jobs - jobs that aren't mine and I haven't accepted
   // need user id
   findAvailable: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is not the author
     // AND where user is not labeller
@@ -83,7 +92,7 @@ let JobController = {
   // find my job - jobs that I uploaded
   // need user id
   findAuthored: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is the author
     JobModel.find({
@@ -100,7 +109,7 @@ let JobController = {
   // find accepted jobs - jobs that aren't mine and I have accepted
   // need user id
   findAccepted: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is in labellers
     JobModel.find({
@@ -151,7 +160,7 @@ let JobController = {
 
     JobModel.findByIdAndUpdate(
       req.params.id,
-      { $push: { labellers: req.body.user } },
+      { $push: { labellers: req.body.userId } },
       { new: true }
     )
       .then((job: any) => {
@@ -210,7 +219,7 @@ let JobController = {
           return Promise.reject();
         }
         // check the lenth of aggregate items
-        console.log(job.aggregate_items.length);
+        // console.log(job.aggregate_items.length);
         if (job.aggregate_items.length < numItemsAggregated) {
           // add the new item to the aggregate list
           JobModel.findByIdAndUpdate(
