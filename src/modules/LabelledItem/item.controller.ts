@@ -3,7 +3,7 @@ import Mongoose from "mongoose";
 import LabelledItemModel from "./item.model";
 import JobController from "../job/job.controller";
 
-const numItemsAggregated = 2;
+const numItemsAggregated = 4;
 
 let ItemController = {
   addItem: async (req: Request, res: Response, next: NextFunction) => {
@@ -35,7 +35,7 @@ let ItemController = {
         .save()
         .then((data: any) => {
           res.status(200).send(data);
-          storedImages.push(data);
+          
         })
         .catch((err: any) => {
           console.log(err.message);
@@ -46,18 +46,20 @@ let ItemController = {
         });
     }
 
-    // console.log("This is the stored data", storedImages);
+    // console.log("This is the aggregated data", aggImages);
     // update item aggregation for this job
 
-    // for(var i = 0; i < aggImages.length; i++){
-    //   JobController.updateItemAggregation(
-    //     new Mongoose.Types.ObjectId(jobID),
-    //     aggImages[i]
-    //   ).then(() => {
-    //     // only send a successful response here, error is handled in the parent catch
-    //     res.status(200).send("OK");
-    //   });
-    // }
+    for(var i = 0; i < aggImages.length; i++){
+      JobController.updateItemAggregation(
+        new Mongoose.Types.ObjectId(jobID),
+        aggImages[i]
+      ).then(() => {
+        // only send a successful response here, error is handled in the parent catch
+        res.status(200).send("OK");
+      });
+    }
+
+    
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {

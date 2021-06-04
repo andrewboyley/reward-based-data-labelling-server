@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import JobModel from "./job.model";
 
-const numItemsAggregated = 1;
+const numItemsAggregated = 4;
 
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
