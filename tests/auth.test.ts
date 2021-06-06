@@ -88,7 +88,7 @@ describe("POST /auth/login", () => {
         expect(res.body).to.have.property("email", dataInsert["email"]);
         expect(res.body).to.not.have.property("password"); // don't return the hash
         expect(res.body).to.have.property("profilePicturePath", "generic.jpeg");
-        expect(res.body).to.have.property("token", loginToken);
+        expect(res.body).to.have.property("token");
         done();
       });
   });

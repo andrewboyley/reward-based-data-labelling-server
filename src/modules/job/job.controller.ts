@@ -7,11 +7,14 @@ const numItemsAggregated = 4;
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
-    if (!req.body) {
-      return res.status(422).send({
-        message: "Job content can not be empty",
-      });
-    }
+
+    // body never empty - been authorised
+
+    // if (!req.body) {
+    //   return res.status(422).send({
+    //     message: "Job content can not be empty",
+    //   });
+    // }
 
     req.body.author = req.body.userId;
     delete req.body.userId;
@@ -37,15 +40,14 @@ let JobController = {
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {
-    JobModel.find()
-      .then((job: any) => {
-        res.send(job);
-      })
-      .catch((err: any) => {
-        res.status(500).send({
-          message: err.message || "Some error occurred while retrieving jobs.",
-        });
-      });
+    JobModel.find().then((job: any) => {
+      res.send(job);
+    });
+    // .catch((err: any) => {
+    //   res.status(500).send({
+    //     message: err.message || "Some error occurred while retrieving jobs.",
+    //   });
+    // });
   },
 
   findOne: async (req: Request, res: Response, next: NextFunction) => {
@@ -210,7 +212,7 @@ let JobController = {
             message: "Job not found with id " + req.params.id,
           });
         }
-        res.send({ message: "Job deleted successfully!" });
+        res.status(204).send();
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId" || err.name === "NotFound") {
@@ -224,38 +226,38 @@ let JobController = {
       });
   },
 
-  updateItemAggregation: async (
-    jobId: Mongoose.Types.ObjectId,
-    itemId: Mongoose.Types.ObjectId
-  ) => {
-    // check length of current aggregation list
-    // if it is less than our threshold, add the item, otherwise continue
-    JobModel.findById(jobId)
-      .then((job: any) => {
-        if (!job) {
-          // job isn't found
-          return Promise.reject();
-        }
-        // check the lenth of aggregate items
-        // console.log(job.aggregate_items.length);
-        if (job.aggregate_items.length < numItemsAggregated) {
-          // add the new item to the aggregate list
-          JobModel.findByIdAndUpdate(
-            jobId,
-            { $push: { aggregate_items: itemId } },
-            { new: true }
-          ).then((res: any) => {
-            // any logic after aggregate list is updated goes here
-            return Promise.resolve();
-          });
-        } else {
-          return Promise.resolve();
-        }
-      })
-      .catch((err: any) => {
-        return Promise.reject(err);
-      });
-  },
+  // updateItemAggregation: async (
+  //   jobId: Mongoose.Types.ObjectId,
+  //   itemId: Mongoose.Types.ObjectId
+  // ) => {
+  //   // check length of current aggregation list
+  //   // if it is less than our threshold, add the item, otherwise continue
+  //   JobModel.findById(jobId)
+  //     .then((job: any) => {
+  //       if (!job) {
+  //         // job isn't found
+  //         return Promise.reject();
+  //       }
+  //       // check the lenth of aggregate items
+  //       // console.log(job.aggregate_items.length);
+  //       if (job.aggregate_items.length < numItemsAggregated) {
+  //         // add the new item to the aggregate list
+  //         JobModel.findByIdAndUpdate(
+  //           jobId,
+  //           { $push: { aggregate_items: itemId } },
+  //           { new: true }
+  //         ).then((res: any) => {
+  //           // any logic after aggregate list is updated goes here
+  //           return Promise.resolve();
+  //         });
+  //       } else {
+  //         return Promise.resolve();
+  //       }
+  //     })
+  //     .catch((err: any) => {
+  //       return Promise.reject(err);
+  //     });
+  // },
 };
 
 export default JobController;
