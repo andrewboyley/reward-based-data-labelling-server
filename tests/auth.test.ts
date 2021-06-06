@@ -1,20 +1,22 @@
 import chai from "chai";
 import chaiHttp from "chai-http";
-// import request from "superagent";
+import sinon from "sinon";
+// import { Express, Request, Response, NextFunction, response } from "express";
 
 import dbHandler from "../src/db-handler";
 import server from "../src/server";
+const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 const expect = chai.expect;
 
 chai.use(chaiHttp);
 
-describe("Post /auth/login", () => {
+describe("POST /auth/login", () => {
   // endpoint
   const endpoint = "/api/auth/login";
 
   // keep track of the user token
-  let userToken = "";
+  let loginToken: string;
 
   // dummy user insert
   const dataInsert: any = {
@@ -41,7 +43,7 @@ describe("Post /auth/login", () => {
       .send(dataInsert);
 
     // get the user's token
-    userToken = res.body.token;
+    loginToken = res.body.token;
   });
 
   // disconnect from in-memory db
@@ -86,7 +88,7 @@ describe("Post /auth/login", () => {
         expect(res.body).to.have.property("email", dataInsert["email"]);
         expect(res.body).to.not.have.property("password"); // don't return the hash
         expect(res.body).to.have.property("profilePicturePath", "generic.jpeg");
-        expect(res.body).to.have.property("token", userToken);
+        expect(res.body).to.have.property("token", loginToken);
         done();
       });
   });
@@ -523,3 +525,169 @@ describe("POST /auth/register", () => {
       });
   });
 });
+
+describe("GET /auth/id", () => {
+  // endpoint
+  const endpoint = "/api/auth/id";
+
+  // dummy user data
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
+
+  let userToken: string;
+
+  // connect to in-memory db
+  before(async function () {
+    await dbHandler.connect();
+  });
+
+  // empty mongod before each test (so no conflicts)
+  beforeEach(async function () {
+    await dbHandler.clear();
+
+    // create dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
+
+    userToken = res.body.token;
+  });
+
+  // disconnect from in-memory db
+  after(async function () {
+    await dbHandler.close();
+  });
+
+  it("returns the user id", (done: any) => {
+    // returns error code and message
+
+    chai
+      .request(server)
+      .get(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        expect(err).to.be.null;
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("id");
+
+        done();
+      });
+  });
+
+  it("rejects invalid tokens", (done: any) => {
+    // returns error code and message
+
+    const dummyToken =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYmQzYzI2NDMyM2QwZjkwNjI3NWY0MiIsImlhdCI6MTYyMzAxNDQzOCwiZXhwIjoxNjIzMDE2MjM4fQ.VmvD5SzDg9xFeQQN5cB0jsa4bgHoOURMQroXhE_4QCU";
+
+    chai
+      .request(server)
+      .get(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + dummyToken)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        expect(err).to.be.null;
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.not.have.property("id");
+        expect(res.body).to.have.property(
+          "message",
+          "Failed to authenticate token."
+        );
+
+        done();
+      });
+  });
+});
+
+// describe("Verify Token", () => {
+//   // endpoint
+//   const endpoint = "/api/auth/id";
+
+//   // dummy user data
+//   const user: any = {
+//     firstName: "Some",
+//     surname: "One",
+//     email: "someone@example.com",
+//     password: "someHash",
+//   };
+
+//   let userToken: string;
+
+//   // connect to in-memory db
+//   before(async function () {
+//     await dbHandler.connect();
+//   });
+
+//   // empty mongod before each test (so no conflicts)
+//   beforeEach(async function () {
+//     await dbHandler.clear();
+
+//     // create dummy user
+//     let res: ChaiHttp.Response = await chai
+//       .request(server)
+//       .post("/api/auth/register")
+//       .set("Content-Type", "application/json; charset=utf-8")
+//       .send(user);
+
+//     userToken = res.body.token;
+//   });
+
+//   // disconnect from in-memory db
+//   after(async function () {
+//     await dbHandler.close();
+//   });
+
+//   it("decodes a valid token", (done: any) => {
+//     expect(VerifyToken.length).to.equal(3);
+
+//     let request = chai
+//       .request(server)
+//       .get("/api/auth/")
+//       .set("Authorization", "Bearer " + userToken);
+
+//     const nextFunction = sinon.spy();
+//     let res = {
+//       headersSent: false,
+//       end: sinon.spy(),
+//       json: sinon.spy(),
+//       redirect: sinon.spy(),
+//       send: sinon.spy(),
+//       set: sinon.spy(),
+//       status: (code: number) => {
+//         return {
+//           headersSent: false,
+//           end: sinon.spy(),
+//           json: sinon.spy(),
+//           redirect: sinon.spy(),
+//           send: sinon.spy(),
+//           set: sinon.spy(),
+//         };
+//       },
+//     };
+
+//     VerifyToken(request, res, nextFunction);
+
+//     expect(nextFunction.called).to.be.true;
+
+//     done();
+//   });
+// });

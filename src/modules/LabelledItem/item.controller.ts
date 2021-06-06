@@ -37,7 +37,7 @@ let ItemController = {
       } catch (err) {
         console.log(err.message);
         res.status(500).send({
-          message: err.message || "Some error occurred while creating the job.",
+          message: err.message || "Some error occurred while saving the image.",
         });
         return;
       }
