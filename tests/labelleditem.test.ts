@@ -16,11 +16,12 @@ chai.use(chaiHttp);
 
 describe("POST /images - upload image", () => {
   const endpoint = "/api/images";
-  // connect to in-memory db
-  var jobID: string;
-  before(async function () {
-    await dbHandler.connect();
-  });
+
+  // keep track of job and user
+  let jobID: string;
+  let userToken: string;
+
+  // dummy user
   const userInsert: any = {
     firstName: "Some",
     surname: "One",
@@ -28,23 +29,28 @@ describe("POST /images - upload image", () => {
     password: "someHash",
   };
 
+  // connect to in-memory db
+  before(async function () {
+    await dbHandler.connect();
+  });
+
   // empty mongod before each test (so no conflicts)
   beforeEach(async function () {
-    var userID: string;
-
     await dbHandler.clear();
+
+    // create user
     let res: ChaiHttp.Response = await chai
       .request(server)
-      .post("/api/user/")
+      .post("/api/auth/register")
       .set("Content-Type", "application/json; charset=utf-8")
       .send(userInsert);
 
-    userID = res.body._id;
+    // get the user token
+    userToken = res.body.token;
 
     const jobInsert: any = {
       title: "A second job",
       description: "Another job description",
-      author: userID,
       numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
@@ -54,6 +60,7 @@ describe("POST /images - upload image", () => {
       .request(server)
       .post("/api/job/")
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .send(jobInsert);
 
     jobID = res.body._id;

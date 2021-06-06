@@ -1,12 +1,6 @@
-// process.env.NODE_ENV = "test";
-
-// import fs - test image uploads
-import fs from "fs";
-import path from "path";
-
 import chai from "chai";
 import chaiHttp from "chai-http";
-import request from "superagent";
+// import request from "superagent";
 
 import dbHandler from "../src/db-handler";
 import server from "../src/server";
@@ -15,9 +9,12 @@ const expect = chai.expect;
 
 chai.use(chaiHttp);
 
-describe("GET /user - login", () => {
+describe("Post /auth/login", () => {
   // endpoint
-  const endpoint = "/api/user/login";
+  const endpoint = "/api/auth/login";
+
+  // keep track of the user token
+  let userToken = "";
 
   // dummy user insert
   const dataInsert: any = {
@@ -37,11 +34,14 @@ describe("GET /user - login", () => {
     await dbHandler.clear();
 
     // add a dummy user
-    await chai
+    const res = await chai
       .request(server)
-      .post("/api/user/")
+      .post("/api/auth/register")
       .set("Content-Type", "application/json; charset=utf-8")
       .send(dataInsert);
+
+    // get the user's token
+    userToken = res.body.token;
   });
 
   // disconnect from in-memory db
@@ -68,10 +68,10 @@ describe("GET /user - login", () => {
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query(dataLogin)
-      .end((err: any, res: request.Response) => {
+      .send(dataLogin)
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(200);
@@ -80,12 +80,13 @@ describe("GET /user - login", () => {
           "application/json; charset=utf-8"
         );
         expect(res).to.be.json;
-        expect(res.body).to.have.property("_id");
+        expect(res.body).to.not.have.property("_id");
         expect(res.body).to.have.property("firstName", dataInsert["firstName"]);
         expect(res.body).to.have.property("surname", dataInsert["surname"]);
         expect(res.body).to.have.property("email", dataInsert["email"]);
         expect(res.body).to.not.have.property("password"); // don't return the hash
         expect(res.body).to.have.property("profilePicturePath", "generic.jpeg");
+        expect(res.body).to.have.property("token", userToken);
         done();
       });
   });
@@ -102,10 +103,10 @@ describe("GET /user - login", () => {
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query(dataLogin)
-      .end((err: any, res: request.Response) => {
+      .send(dataLogin)
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(401);
@@ -131,10 +132,10 @@ describe("GET /user - login", () => {
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query(dataLogin)
-      .end((err: any, res: request.Response) => {
+      .send(dataLogin)
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(401);
@@ -148,17 +149,16 @@ describe("GET /user - login", () => {
       });
   });
 
-  // missing field(s) - return 422
-  it("Required field(s) missing", (done: any) => {
-    
+  // no email - return 422
+  it("Email not provided", (done: any) => {
     // returns error code and message
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query({})
-      .end((err: any, res: request.Response) => {
+      .send({})
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(422);
@@ -167,18 +167,38 @@ describe("GET /user - login", () => {
           "application/json; charset=utf-8"
         );
         expect(res).to.be.json;
-        expect(res.body).to.have.property(
-          "error",
-          "Missing the following field(s): email, password"
+        expect(res.body).to.have.property("error", "Email not provided");
+        done();
+      });
+  });
+
+  // no password - return 422
+  it("Password not provided", (done: any) => {
+    // returns error code and message
+
+    chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({ email: dataInsert["email"] })
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response (and property values where applicable)
+        expect(err).to.be.null;
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
         );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("error", "Password not provided");
         done();
       });
   });
 });
 
-describe("POST /user", () => {
+describe("POST /auth/register", () => {
   // endpoint
-  const endpoint = "/api/user";
+  const endpoint = "/api/auth/register";
 
   // connect to in-memory db
   before(async function () {
@@ -260,12 +280,13 @@ describe("POST /user", () => {
       email: "someone@example.com",
       password: "someHash",
     };
+
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err: any, res: request.Response) => {
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(201);
@@ -274,12 +295,73 @@ describe("POST /user", () => {
           "application/json; charset=utf-8"
         );
         expect(res).to.be.json;
-        expect(res.body).to.have.property("_id");
+        expect(res.body).to.not.have.property("_id");
         expect(res.body).to.have.property("firstName", data["firstName"]);
         expect(res.body).to.have.property("surname", data["surname"]);
         expect(res.body).to.have.property("email", data["email"]);
         expect(res.body).to.not.have.property("password"); // don't return the hash
         expect(res.body).to.have.property("profilePicturePath", "generic.jpeg");
+        expect(res.body).to.have.property("token");
+        done();
+      });
+  });
+
+  // no email - 422
+  it("Email not provided", (done: any) => {
+    // returns error code and message
+
+    const data: any = {
+      firstName: "Some",
+      surname: "One",
+      // email: "someone1@example.com",
+      password: "someHash",
+    };
+
+    chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(data)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        expect(err).to.be.null;
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("error", "Email not provided");
+        done();
+      });
+  });
+
+  // no password - 422
+  it("Password not provided", (done: any) => {
+    // returns error code and message
+
+    const data: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "someone1@example.com",
+      // password: "someHash",
+    };
+
+    chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(data)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        expect(err).to.be.null;
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("error", "Password not provided");
         done();
       });
   });
@@ -316,12 +398,13 @@ describe("POST /user", () => {
       email: "someone1@example.com",
       password: "someHash",
     };
+
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err: any, res: request.Response) => {
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response
         expect(err).to.be.null;
         expect(res).to.have.status(422);
@@ -332,7 +415,7 @@ describe("POST /user", () => {
         expect(res).to.be.json;
         expect(res.body).to.have.property(
           "error",
-          "Missing the following field(s): surname"
+          "User validation failed: surname: Surname not provided"
         );
         done();
       });
@@ -377,15 +460,15 @@ describe("POST /user", () => {
     */
 
     const data: any = {
-      firstName: "Some",
-      surname: "One",
+      email: "someone@example.com",
+      password: "One",
     };
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err: any, res: request.Response) => {
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response
         expect(err).to.be.null;
         expect(res).to.have.status(422);
@@ -396,7 +479,7 @@ describe("POST /user", () => {
         expect(res).to.be.json;
         expect(res.body).to.have.property(
           "error",
-          "Missing the following field(s): email, password"
+          "User validation failed: surname: Surname not provided, firstName: First Name not provided"
         );
 
         done();
@@ -418,13 +501,13 @@ describe("POST /user", () => {
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err1: any, res1: request.Response) => {
+      .end((err1: any, res1: ChaiHttp.Response) => {
         chai
           .request(server)
           .post(endpoint)
           .set("Content-Type", "application/json; charset=utf-8")
           .send(data)
-          .end((err: any, res: request.Response) => {
+          .end((err: any, res: ChaiHttp.Response) => {
             expect(res).to.have.status(422);
             expect(res).to.have.header(
               "Content-Type",

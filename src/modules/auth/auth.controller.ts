@@ -9,6 +9,9 @@ process.env.SECRET = process.env.SECRET || "deletthislol";
 let AuthController = {
   // check if email exists
   register: async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.body.email) {
+      return res.status(422).json({ error: "Email not provided" });
+    }
     User.exists(
       { email: req.body.email },
       function (err: any, exists: boolean) {
@@ -23,7 +26,7 @@ let AuthController = {
         } else {
           // hash the password
           if (!req.body.password) {
-            return res.status(422).json({ error: "No password provided" });
+            return res.status(422).json({ error: "Password not provided" });
           }
           hash.hashPassword(req.body.password, (hash: string) => {
             if (err) {
@@ -49,7 +52,7 @@ let AuthController = {
                 res.status(201).json(user);
               })
               .catch((err) => {
-                res.status(500).send(err.message);
+                res.status(422).send({ error: err.message });
               }); // move onto next middleware
           });
         }
@@ -68,12 +71,16 @@ let AuthController = {
   },
 
   login: async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.body.email) {
+      return res.status(422).json({ error: "Email not provided" });
+    }
     User.findOne({ email: req.body.email }, function (err: any, user: any) {
       if (err) return res.status(500).json({ error: err.message });
-      if (!user) return res.status(404).json({ error: "No user found." });
+      if (!user)
+        return res.status(401).json({ error: "Login credentials invalid" });
 
       if (!req.body.password) {
-        return res.status(422).json({ error: "No password provided" });
+        return res.status(422).json({ error: "Password not provided" });
       }
       hash.comparePassword(
         req.body.password,

@@ -14,10 +14,8 @@ describe("GET /job", () => {
   const endpoint = "/api/job";
 
   // dummy inserted ids
-  let authorID = "";
+  let userToken = "";
   let dummyJobId: string;
-  let dummyAcceptId: string;
-  let dummyAvailableId: string;
 
   // dummy user insert
   const user: any = {
@@ -32,11 +30,11 @@ describe("GET /job", () => {
     title: "Some title",
     description: "Some description",
     //date created does not need to be inserted because it is not changable by user
-    author: "Replaced in a bit",
+    // author: "Replaced in a bit",
     numLabellersRequired: 2,
     labels: ["A"],
     reward: 1,
-    labellers: ["f" + authorID.slice(1)],
+    labellers: [],
   };
 
   // connect to in-memory db
@@ -48,23 +46,20 @@ describe("GET /job", () => {
   beforeEach(async function () {
     await dbHandler.clear();
 
-    // add a dummy user
+    // create a dummy user
     let res: ChaiHttp.Response = await chai
       .request(server)
-      .post("/api/user/")
+      .post("/api/auth/register")
       .set("Content-Type", "application/json; charset=utf-8")
       .send(user);
 
-    //getting the user ID
-    authorID = res.body._id;
-    dummyAcceptId = "f" + authorID.slice(1);
-    dummyAvailableId = "e" + authorID.slice(1);
+    // get the user token
+    userToken = res.body.token;
 
     dataInsert = {
       title: "Some title",
       description: "Some description",
       //date created does not need to be inserted because it is not changable by user
-      author: authorID,
       numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
@@ -76,17 +71,10 @@ describe("GET /job", () => {
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .send(dataInsert);
 
     dummyJobId = res.body._id;
-
-    // add another dummy job - with labeller (so have accepted jobs)
-    dataInsert.labellers = [dummyAcceptId];
-    res = await chai
-      .request(server)
-      .post(endpoint)
-      .set("Content-Type", "application/json; charset=utf-8")
-      .send(dataInsert);
   });
 
   // disconnect from in-memory db
@@ -109,6 +97,7 @@ describe("GET /job", () => {
       .request(server)
       .get(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
 
@@ -124,7 +113,7 @@ describe("GET /job", () => {
         expect(body).to.have.property("_id");
         expect(body).to.have.property("title", dataInsert["title"]);
         expect(body).to.have.property("description", dataInsert["description"]);
-        expect(body).to.have.property("author", dataInsert["author"]);
+        expect(body).to.have.property("author");
         expect(body).to.have.property("dateCreated");
         expect(body).to.have.property("labels");
         expect(body.labels).deep.equal(dataInsert["labels"]);
@@ -142,7 +131,7 @@ describe("GET /job", () => {
       .request(server)
       .get(endpoint + "/" + dummyJobId) ///////////////How do I get the ID here?
       .set("Content-Type", "application/json; charset=utf-8")
-      // .query(dataJob)
+      .set("Authorization", "Bearer " + userToken)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
@@ -158,7 +147,7 @@ describe("GET /job", () => {
           "description",
           dataInsert["description"]
         );
-        expect(res.body).to.have.property("author", dataInsert["author"]);
+        expect(res.body).to.have.property("author");
         expect(res.body).to.have.property("dateCreated");
         expect(res.body).to.have.property("labels");
         expect(res.body.labels).deep.equal(dataInsert["labels"]);
@@ -176,6 +165,7 @@ describe("GET /job", () => {
       .request(server)
       .get(endpoint + "/" + wrongId)
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
@@ -197,9 +187,9 @@ describe("GET /job", () => {
     // get all the jobs I made
     chai
       .request(server)
-      .get(endpoint + "/authored/" + authorID)
+      .get(endpoint + "/authored")
       .set("Content-Type", "application/json; charset=utf-8")
-      // .query(dataJob)
+      .set("Authorization", "Bearer " + userToken)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         const body = res.body[0];
@@ -213,70 +203,133 @@ describe("GET /job", () => {
         expect(body).to.have.property("_id");
         expect(body).to.have.property("title");
         expect(body).to.have.property("description");
-        expect(body).to.have.property("author", authorID);
+        expect(body).to.have.property("author");
         expect(body).to.have.property("dateCreated");
         expect(body).to.have.property("labels");
         done();
       });
   });
 
-  it("Retrieves all accepted jobs", (done: any) => {
+  it("Retrieves all accepted jobs", async () => {
     // get all the jobs I accepted
-    chai
+
+    // need to create another user and accept as him
+    const acceptUser: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "someone1@example.com",
+      password: "someHash",
+    };
+
+    let response: ChaiHttp.Response = await chai
       .request(server)
-      .get(endpoint + "/accepted/" + dummyAcceptId)
+      .post("/api/auth/register")
       .set("Content-Type", "application/json; charset=utf-8")
-      // .query(dataJob)
-      .end((err: any, res: ChaiHttp.Response) => {
-        // check response (and property values where applicable)
-        const body = res.body[0];
-        expect(err).to.be.null;
-        expect(res).to.have.status(200);
-        expect(res).to.have.header(
-          "Content-Type",
-          "application/json; charset=utf-8"
-        );
-        expect(res).to.be.json;
-        expect(body).to.have.property("_id");
-        expect(body).to.have.property("title");
-        expect(body).to.have.property("description");
-        expect(body).to.have.property("author");
-        expect(body).to.have.property("dateCreated");
-        expect(body).to.have.property("labels");
-        expect(body).to.have.property("labellers");
-        expect(body.labellers).to.contain(dummyAcceptId);
-        done();
-      });
+      .send(acceptUser);
+
+    // get the user token
+    const acceptToken = response.body.token;
+
+    // convert the token to an id
+    response = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + acceptToken)
+      .send();
+
+    const acceptId: string = response.body.id;
+
+    // accept the job as this user
+    response = await chai
+      .request(server)
+      .put(endpoint + "/labeller/" + dummyJobId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + acceptToken)
+      .send();
+
+    // check I have accepted the job
+    response = await chai
+      .request(server)
+      .get(endpoint + "/accepted")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + acceptToken)
+      .send();
+
+    // check response (and property values where applicable)
+    const body = response.body[0];
+    // expect(err).to.be.null;
+    expect(response).to.have.status(200);
+    expect(response).to.have.header(
+      "Content-Type",
+      "application/json; charset=utf-8"
+    );
+    expect(response).to.be.json;
+    expect(body).to.have.property("_id");
+    expect(body).to.have.property("title");
+    expect(body).to.have.property("description");
+    expect(body).to.have.property("author");
+    expect(body).to.have.property("dateCreated");
+    expect(body).to.have.property("labels");
+    expect(body).to.have.property("labellers");
+    expect(body.labellers).to.contain(acceptId);
   });
 
-  it("Retrieves all available jobs", (done: any) => {
+  it("Retrieves all available jobs", async () => {
     // get all the jobs I can accept (not mine, not accepted)
-    chai
+
+    // need to create another user and get available as him
+    const availableUser: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "someone1@example.com",
+      password: "someHash",
+    };
+
+    let response: ChaiHttp.Response = await chai
       .request(server)
-      .get(endpoint + "/available/" + dummyAvailableId)
+      .post("/api/auth/register")
       .set("Content-Type", "application/json; charset=utf-8")
-      // .query(dataJob)
-      .end((err: any, res: ChaiHttp.Response) => {
-        // check response (and property values where applicable)
-        const body = res.body[0];
-        expect(err).to.be.null;
-        expect(res).to.have.status(200);
-        expect(res).to.have.header(
-          "Content-Type",
-          "application/json; charset=utf-8"
-        );
-        expect(res).to.be.json;
-        expect(body).to.have.property("_id");
-        expect(body).to.have.property("title");
-        expect(body).to.have.property("description");
-        expect(body).to.have.property("author");
-        expect(body.author).to.not.equal(dummyAvailableId);
-        expect(body).to.have.property("dateCreated");
-        expect(body).to.have.property("labels");
-        expect(body).to.have.property("labellers");
-        expect(body.labellers).to.not.contain(dummyAvailableId);
-        done();
-      });
+      .send(availableUser);
+
+    // get the user token
+    const availableToken = response.body.token;
+
+    // convert the token to an id
+    response = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + availableToken)
+      .send();
+
+    const availableId: string = response.body.id;
+
+    response = await chai
+      .request(server)
+      .get(endpoint + "/available")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + availableToken)
+      .send();
+
+    // check response (and property values where applicable)
+    const body = response.body[0];
+    // expect(err).to.be.null;
+    expect(response).to.have.status(200);
+    expect(response).to.have.header(
+      "Content-Type",
+      "application/json; charset=utf-8"
+    );
+    expect(response).to.be.json;
+    expect(body).to.have.property("_id");
+    expect(body).to.have.property("title");
+    expect(body).to.have.property("description");
+    expect(body).to.have.property("author");
+    expect(body.author).to.not.equal(availableId);
+    expect(body).to.have.property("dateCreated");
+    expect(body).to.have.property("labels");
+    expect(body).to.have.property("labellers");
+    expect(body.labellers).to.not.contain(availableId);
   });
 });
 
@@ -284,6 +337,18 @@ describe("GET /job", () => {
 describe("POST /job", () => {
   // endpoint
   const endpoint = "/api/job";
+
+  // dummy inserted ids
+  let userToken = "";
+  let userId = "";
+
+  // dummy user insert
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
 
   // connect to in-memory db
   before(async function () {
@@ -293,6 +358,26 @@ describe("POST /job", () => {
   // empty mongod before each test (so no conflicts)
   beforeEach(async function () {
     await dbHandler.clear();
+
+    // create a dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
+
+    // get the user token
+    userToken = res.body.token;
+
+    // translate token to id
+    res = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send();
+
+    userId = res.body.id;
   });
 
   // disconnect from in-memory db
@@ -316,21 +401,22 @@ describe("POST /job", () => {
 
   // insert successful
   it("All fields present", (done: any) => {
-    // returns user object
+    // returns job object
     // this case should use the generic image
+
     const dataInsert: any = {
       title: "A second job",
       description: "Another job description",
-      author: "60942b9c1878e068fc0cf954",
-      numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
+      numLabellersRequired: 2,
     };
 
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .send(dataInsert)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
@@ -347,7 +433,7 @@ describe("POST /job", () => {
           "description",
           dataInsert["description"]
         );
-        expect(res.body).to.have.property("author", dataInsert["author"]);
+        expect(res.body).to.have.property("author", userId);
         expect(res.body).to.have.property("dateCreated");
         expect(res.body).to.have.property("labels");
         expect(res.body.labels).deep.equal(dataInsert["labels"]);
@@ -358,18 +444,18 @@ describe("POST /job", () => {
   // insert fails - return 422 error
   it("One required field missing", (done: any) => {
     const dataInsert: any = {
-      title: "A second job",
+      // title: "A second job",
       description: "Another job description",
-      author: "60942b9c1878e068fc0cf954",
-      // numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
+      numLabellersRequired: 2,
     };
 
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .send(dataInsert)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response
@@ -382,7 +468,7 @@ describe("POST /job", () => {
         expect(res).to.be.json;
         expect(res.body).to.have.property(
           "message",
-          "Job validation failed: numLabellersRequired: Number of labellers not provided"
+          "Job validation failed: title: Title not provided"
         );
         done();
       });
@@ -391,18 +477,18 @@ describe("POST /job", () => {
   // insert fails - return 422 error
   it("Multiple required fields missing", (done: any) => {
     const dataInsert: any = {
-      title: "A second job",
-      description: "Another job description",
-      // author: "60942b9c1878e068fc0cf954",
-      // numLabellersRequired: 2,
+      // title: "A second job",
+      // description: "Another job description",
       labels: ["A"],
       reward: 1,
+      numLabellersRequired: 2,
     };
 
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
       .send(dataInsert)
       .end((err: any, res: ChaiHttp.Response) => {
         // check response
@@ -415,7 +501,7 @@ describe("POST /job", () => {
         expect(res).to.be.json;
         expect(res.body).to.have.property(
           "message",
-          "Job validation failed: numLabellersRequired: Number of labellers not provided, author: Author not provided"
+          "Job validation failed: description: Description not provided, title: Title not provided"
         );
         done();
       });
