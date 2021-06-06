@@ -10,11 +10,11 @@ let JobController = {
 
     // body never empty - been authorised
 
-    // if (!req.body) {
-    //   return res.status(422).send({
-    //     message: "Job content can not be empty",
-    //   });
-    // }
+    if (!req.body) {
+      return res.status(422).send({
+        message: "Job content can not be empty",
+      });
+    }
 
     req.body.author = req.body.userId;
     delete req.body.userId;
@@ -40,14 +40,15 @@ let JobController = {
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {
-    JobModel.find().then((job: any) => {
-      res.send(job);
-    });
-    // .catch((err: any) => {
-    //   res.status(500).send({
-    //     message: err.message || "Some error occurred while retrieving jobs.",
-    //   });
-    // });
+    JobModel.find()
+      .then((job: any) => {
+        res.send(job);
+      })
+      .catch((err: any) => {
+        res.status(500).send({
+          message: err.message || "Some error occurred while retrieving jobs.",
+        });
+      });
   },
 
   findOne: async (req: Request, res: Response, next: NextFunction) => {
