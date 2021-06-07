@@ -2,18 +2,23 @@ import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import JobModel from "./job.model";
 
-const numItemsAggregated = 1;
+const numItemsAggregated = 4;
 
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
+
+    // body never empty - been authorised
+
     if (!req.body) {
       return res.status(422).send({
         message: "Job content can not be empty",
       });
     }
 
-    // console.log(req.body)
+    req.body.author = req.body.userId;
+    delete req.body.userId;
+
     let newJob = new JobModel(req.body);
 
     newJob
@@ -54,6 +59,23 @@ let JobController = {
             message: "Job not found with id " + req.params.id,
           });
         }
+        // can the current user accept this job
+        const currentUserId = req.body.userId;
+
+        job = job.toObject();
+        const labellers = Object.values(job.labellers);
+        let isLabeller = false;
+        for (let labeller of labellers) {
+          if (labeller == currentUserId) {
+            isLabeller = true;
+            break;
+          }
+        }
+        job.canAccept =
+          !isLabeller &&
+          job.labellers.length < job.numLabellersRequired &&
+          job.author != currentUserId;
+
         res.send(job);
       })
       .catch((err: any) => {
@@ -71,13 +93,14 @@ let JobController = {
   // find available jobs - jobs that aren't mine and I haven't accepted
   // need user id
   findAvailable: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is not the author
     // AND where user is not labeller
     JobModel.find({
       author: { $ne: userObjectId },
       labellers: { $ne: userObjectId },
+      // $expr: { $lt: ["$labellers.length", "$numLabellersRequired"] }, // first < second
     })
       .then((jobs: any) => {
         res.json(jobs);
@@ -90,7 +113,7 @@ let JobController = {
   // find my job - jobs that I uploaded
   // need user id
   findAuthored: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is the author
     JobModel.find({
@@ -107,7 +130,7 @@ let JobController = {
   // find accepted jobs - jobs that aren't mine and I have accepted
   // need user id
   findAccepted: async (req: Request, res: Response, next: NextFunction) => {
-    const userObjectId = new Mongoose.Types.ObjectId(req.params.id);
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is in labellers
     JobModel.find({
@@ -158,7 +181,7 @@ let JobController = {
 
     JobModel.findByIdAndUpdate(
       req.params.id,
-      { $push: { labellers: req.body.user } },
+      { $push: { labellers: req.body.userId } },
       { new: true }
     )
       .then((job: any) => {
@@ -190,7 +213,7 @@ let JobController = {
             message: "Job not found with id " + req.params.id,
           });
         }
-        res.send({ message: "Job deleted successfully!" });
+        res.status(204).send();
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId" || err.name === "NotFound") {
@@ -204,38 +227,38 @@ let JobController = {
       });
   },
 
-  updateItemAggregation: async (
-    jobId: Mongoose.Types.ObjectId,
-    itemId: Mongoose.Types.ObjectId
-  ) => {
-    // check length of current aggregation list
-    // if it is less than our threshold, add the item, otherwise continue
-    JobModel.findById(jobId)
-      .then((job: any) => {
-        if (!job) {
-          // job isn't found
-          return Promise.reject();
-        }
-        // check the lenth of aggregate items
-        // console.log(job.aggregate_items.length);
-        if (job.aggregate_items.length < numItemsAggregated) {
-          // add the new item to the aggregate list
-          JobModel.findByIdAndUpdate(
-            jobId,
-            { $push: { aggregate_items: itemId } },
-            { new: true }
-          ).then((res: any) => {
-            // any logic after aggregate list is updated goes here
-            return Promise.resolve();
-          });
-        } else {
-          return Promise.resolve();
-        }
-      })
-      .catch((err: any) => {
-        return Promise.reject(err);
-      });
-  },
+  // updateItemAggregation: async (
+  //   jobId: Mongoose.Types.ObjectId,
+  //   itemId: Mongoose.Types.ObjectId
+  // ) => {
+  //   // check length of current aggregation list
+  //   // if it is less than our threshold, add the item, otherwise continue
+  //   JobModel.findById(jobId)
+  //     .then((job: any) => {
+  //       if (!job) {
+  //         // job isn't found
+  //         return Promise.reject();
+  //       }
+  //       // check the lenth of aggregate items
+  //       // console.log(job.aggregate_items.length);
+  //       if (job.aggregate_items.length < numItemsAggregated) {
+  //         // add the new item to the aggregate list
+  //         JobModel.findByIdAndUpdate(
+  //           jobId,
+  //           { $push: { aggregate_items: itemId } },
+  //           { new: true }
+  //         ).then((res: any) => {
+  //           // any logic after aggregate list is updated goes here
+  //           return Promise.resolve();
+  //         });
+  //       } else {
+  //         return Promise.resolve();
+  //       }
+  //     })
+  //     .catch((err: any) => {
+  //       return Promise.reject(err);
+  //     });
+  // },
 };
 
 export default JobController;

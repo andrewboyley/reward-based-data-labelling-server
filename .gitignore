@@ -8,6 +8,7 @@ uploads/jobs/*
 !uploads/jobs/.jobs
 coverage
 .coveralls.yml
+.env
 
 # local env files
 .env.local
