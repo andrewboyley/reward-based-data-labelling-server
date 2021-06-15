@@ -102,6 +102,7 @@ let JobController = {
       labellers: { $ne: userObjectId },
       // $expr: { $lt: ["$labellers.length", "$numLabellersRequired"] }, // first < second
     })
+      .$where("this.labellers.length < this.numLabellersRequired")
       .then((jobs: any) => {
         res.json(jobs);
       })
