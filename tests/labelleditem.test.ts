@@ -48,6 +48,7 @@ describe("POST /images - upload image", () => {
     // get the user token
     userToken = res.body.token;
 
+    // create a dummy job
     const jobInsert: any = {
       title: "A second job",
       description: "Another job description",
@@ -79,6 +80,7 @@ describe("POST /images - upload image", () => {
       .field("jobID", jobID)
       .attach("image", "tests/test_image/png.png")
       .end(function (err: any, res: ChaiHttp.Response) {
+        // check that the image has been uploaded
         expect(err).to.be.null;
         expect(res.status).to.equal(200);
         rimraf("uploads/jobs/" + jobID, function () {
@@ -96,6 +98,7 @@ describe("POST /images - upload image", () => {
       .field("jobID", jobID)
       .attach("image", "tests/test_image/jpg.jpg")
       .end(function (err: any, res: ChaiHttp.Response) {
+        // check the image has been uploaded
         expect(err).to.be.null;
         expect(res.status).to.equal(200);
         rimraf("uploads/jobs/" + jobID, function () {
