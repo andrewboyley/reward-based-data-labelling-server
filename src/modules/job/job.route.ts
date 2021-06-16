@@ -14,6 +14,6 @@ router.post("/", VerifyToken, JobController.create); // create a job
 router.put("/:id", JobController.update);
 router.put("/labeller/:id", VerifyToken, JobController.addLabeller); // id is the job id
 
-router.delete("/:id", JobController.delete);
+router.delete("/:id", JobController.delete); // remove the job with that id
 
 module.exports = router;
