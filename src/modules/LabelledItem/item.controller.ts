@@ -4,7 +4,7 @@ import LabelledItemModel from "./item.model";
 import JobController from "../job/job.controller";
 
 const numItemsAggregated = 4;
-
+const desiredBatchSize = 10
 let ItemController = {
   addItem: async (req: Request, res: Response, next: NextFunction) => {
     // get job Id from request body
@@ -17,12 +17,16 @@ let ItemController = {
     var aggImages = Array<any>();
     var storedImages = Array<any>();
 
+    //total number of batches given # of images
+    const totalBatches = Math.max(Math.round((req.files.length as number)/desiredBatchSize),1)
     for (var i = 0; i < req.files.length; i++) {
       // creates the new labelled item json object
       newLabelledItemObject = {
         value: (req.files as Express.Multer.File[])[i].filename,
         job: jobID,
+        batchNumber: i%totalBatches
       };
+      
 
       // create a mongoose labelled item object
       let newLabelledItem = new LabelledItemModel(newLabelledItemObject);
@@ -34,6 +38,7 @@ let ItemController = {
       // save the labelled item in the database
       try {
         const itemResponse = await newLabelledItem.save();
+
       } catch (err) {
         // something went wrong when saving the image
         res.status(500).send({
