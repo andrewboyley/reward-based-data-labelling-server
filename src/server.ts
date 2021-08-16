@@ -3,7 +3,7 @@ import dbHandler from "./db-handler";
 import cors from "cors";
 
 if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config();
+	require("dotenv").config();
 }
 
 // use environment port number if it exists - used for listening for requests
@@ -32,6 +32,7 @@ indexRouter.use("/user", require("./modules/user/user.route"));
 indexRouter.use("/job", require("./modules/job/job.route"));
 indexRouter.use("/images", require("./modules/LabelledItem/item.route"));
 indexRouter.use("/auth", require("./modules/auth/auth.route"));
+indexRouter.use("/batch", require("./modules/batch/batch.route"));
 //indexRouter.use("/job", require("./modules/LabelledItem/item.route"));
 
 app.use("/api", indexRouter);
@@ -39,5 +40,5 @@ app.use("/api", indexRouter);
 // listen for requests (listen on port)
 // export to allow testing
 export default app.listen(port, () => {
-  console.log(`Listening for requests on ${port}`);
+	console.log(`Listening for requests on ${port}`);
 });
