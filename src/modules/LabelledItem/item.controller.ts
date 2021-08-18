@@ -3,6 +3,7 @@ import Mongoose from "mongoose";
 import LabelledItemModel from "./item.model";
 import JobController from "../job/job.controller";
 import JobModel from "../job/job.model";
+import BatchController from "../batch/batch.controller";
 
 const numItemsAggregated = 4;
 const desiredBatchSize = 10

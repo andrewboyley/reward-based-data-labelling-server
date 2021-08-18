@@ -4,7 +4,7 @@ const AutoIncrement = require('mongoose-sequence')(mongoose);
 const BatchSchema: any = new Schema(
 	{
 		// the batch number, will be an auto-increment
-		index: Number,
+		batch_number: Number,
 
 		// job the batch belongs to
 		job: {
