@@ -2,6 +2,7 @@ import { Express, Request, Response, NextFunction } from "express";
 import Mongoose from "mongoose";
 import LabelledItemModel from "./item.model";
 import JobController from "../job/job.controller";
+import JobModel from "../job/job.model";
 
 const numItemsAggregated = 4;
 const desiredBatchSize = 10
@@ -19,6 +20,8 @@ let ItemController = {
 
     //total number of batches given # of images
     const totalBatches = Math.max(Math.round((req.files.length as number)/desiredBatchSize),1)
+    // adds batch size to parent job (leave await here or it doesnt work [???])
+    await JobModel.findByIdAndUpdate(jobID,  {total_batches: totalBatches})
     for (var i = 0; i < req.files.length; i++) {
       // creates the new labelled item json object
       newLabelledItemObject = {
@@ -35,6 +38,7 @@ let ItemController = {
         aggImages.push(newLabelledItem);
       }
 
+
       // save the labelled item in the database
       try {
         const itemResponse = await newLabelledItem.save();
@@ -48,6 +52,7 @@ let ItemController = {
       }
     }
 
+    
     res.status(200).send("OK");
   },
 
