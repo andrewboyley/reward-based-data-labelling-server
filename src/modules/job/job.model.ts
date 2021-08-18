@@ -59,6 +59,11 @@ const JobSchema: any = new Schema(
         required: [false, "No images uploaded"],
       },
     ],
+
+    total_batches: {
+      type: Number,
+      default: 1,
+    }
   },
 
   { versionKey: false }
