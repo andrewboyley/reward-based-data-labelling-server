@@ -4,6 +4,7 @@ import LabelledItemModel from "./item.model";
 import JobController from "../job/job.controller";
 import JobModel from "../job/job.model";
 import BatchController from "../batch/batch.controller";
+import BatchModel from "../batch/batch.model";
 
 const numItemsAggregated = 4;
 const desiredBatchSize = 10
@@ -23,6 +24,12 @@ let ItemController = {
     const totalBatches = Math.max(Math.round((req.files.length as number)/desiredBatchSize),1)
     // adds batch size to parent job (leave await here or it doesnt work [???])
     await JobModel.findByIdAndUpdate(jobID,  {total_batches: totalBatches})
+
+    for(let i = 0; i< totalBatches; i++)
+    {
+      BatchController.create(i, Mongoose.Types.ObjectId(jobID))
+    }
+
     for (var i = 0; i < req.files.length; i++) {
       // creates the new labelled item json object
       newLabelledItemObject = {
