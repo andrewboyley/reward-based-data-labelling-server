@@ -11,24 +11,26 @@ const BatchSchema: any = new Schema(
 			ref: "Job",
 		},
 
+		// labellers: {
+		// 	type: Array,
+		// 	default: []
+		// }
+	//	alternative implementation
 		// people who have accepted the batch, and their completion status
-		labellers: {
-			type: Array,
-			default: []
-		}
-		// alternative implementation
-		// labellers: [
-		// 	{
-		// 		labeller: {
-		// 			type: Schema.Types.ObjectId,
-		// 			ref: "User",
-		// 		},
 
-		// 		status: {
-		// 			type: Boolean,
-		// 		},
-		// 	},
-		// ],
+		labellers: [
+			{
+				labeller: {
+					type: Schema.Types.ObjectId,
+					ref: "User",
+				},
+
+				completed: {
+					type: Boolean,
+					default: false,
+				},
+			},
+		],
 
 	},
 );
