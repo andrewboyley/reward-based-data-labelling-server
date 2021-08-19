@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
+import BatchController from "../batch/batch.controller";
 import JobModel from "./job.model";
 
 const numItemsAggregated = 4;
@@ -117,11 +118,27 @@ let JobController = {
     // AND where there are still labelling slots available
     JobModel.find({
       author: { $ne: userObjectId },
-      labellers: { $ne: userObjectId },
     })
-      .$where("this.labellers.length < this.numLabellersRequired")
-      .then((jobs: any) => {
-        res.json(jobs);
+      // .$where("this.labellers.length < this.numLabellersRequired")
+      .then(async (jobs: any) => {
+        // all these jobs were not authored by us
+        const availableJobs = [];
+
+        // need to check the batches - not labelled, and still labelling slots open
+        for (let job of jobs) {
+          const batch = await BatchController.determineAvailableBatches(
+            userObjectId,
+            job._id,
+            job.numLabellersRequired
+          );
+
+          if (batch !== null && Object.keys(batch).length !== 0) {
+            // job is valid if it has a valid, non-empty batch
+            availableJobs.push(job);
+          }
+        }
+
+        res.json(availableJobs);
       })
       .catch((err: any) => {
         return res.status(400).json({ error: "Something went wrong" });

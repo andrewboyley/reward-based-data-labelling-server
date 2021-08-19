@@ -7,7 +7,7 @@ import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
 
 const numItemsAggregated = 4;
-const desiredBatchSize = 10
+const desiredBatchSize = 10;
 let ItemController = {
   addItem: async (req: Request, res: Response, next: NextFunction) => {
     // get job Id from request body
@@ -21,13 +21,16 @@ let ItemController = {
     var storedImages = Array<any>();
 
     //total number of batches given # of images
-    const totalBatches = Math.max(Math.round((req.files.length as number)/desiredBatchSize),1)
-    // adds batch size to parent job (leave await here or it doesnt work [???])
-    await JobModel.findByIdAndUpdate(jobID,  {total_batches: totalBatches})
+    const totalBatches = Math.max(
+      Math.round((req.files.length as number) / desiredBatchSize),
+      1
+    );
 
-    for(let i = 0; i< totalBatches; i++)
-    {
-      BatchController.create(i, Mongoose.Types.ObjectId(jobID))
+    // adds batch size to parent job (leave await here or it doesnt work [???])
+    await JobModel.findByIdAndUpdate(jobID, { total_batches: totalBatches });
+
+    for (let i = 0; i < totalBatches; i++) {
+      BatchController.create(i, Mongoose.Types.ObjectId(jobID));
     }
 
     for (var i = 0; i < req.files.length; i++) {
@@ -35,9 +38,8 @@ let ItemController = {
       newLabelledItemObject = {
         value: (req.files as Express.Multer.File[])[i].filename,
         job: jobID,
-        batchNumber: i%totalBatches
+        batchNumber: i % totalBatches,
       };
-      
 
       // create a mongoose labelled item object
       let newLabelledItem = new LabelledItemModel(newLabelledItemObject);
@@ -46,11 +48,9 @@ let ItemController = {
         aggImages.push(newLabelledItem);
       }
 
-
       // save the labelled item in the database
       try {
         const itemResponse = await newLabelledItem.save();
-
       } catch (err) {
         // something went wrong when saving the image
         res.status(500).send({
@@ -60,7 +60,6 @@ let ItemController = {
       }
     }
 
-    
     res.status(200).send("OK");
   },
 
