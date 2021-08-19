@@ -36,13 +36,14 @@ const JobSchema: any = new Schema(
       default: 1,
     },
 
-    labellers: [
-      // list of the users who accepted the job
-      {
-        type: Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    // labellers: [
+    //   // list of the users who accepted the job
+    //   {
+    //     type: Schema.Types.ObjectId,
+    //     ref: "User",
+    //   },
+    // ],
+    //Handled in batches now
 
     numLabellersRequired: {
       // max num of users who can accept the job

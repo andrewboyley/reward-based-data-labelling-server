@@ -34,6 +34,45 @@ let BatchController = {
 				});
 			});
 	},
+
+	addLabeller: async (req: Request, res: Response, next: NextFunction) => {
+		// check that a labeller has been provided
+		if (!req.body) {
+		  return res.status(400).send({
+			message: "Data not recieved correctly",
+		  });
+		}
+	
+		// add the labeller to the job
+		BatchModel.findByIdAndUpdate(
+		  req.params.id,
+		  { $push: { labellers: req.body.userId } },
+		  { new: true }
+		)
+		  .then((job: any) => {
+			if (!job) {
+			  // invalid job id was provided
+			  return res.status(404).send({
+				message: "Job not found with id " + req.params.id,
+			  });
+			}
+			// return successful update - 204 means no body (not required for PUT)
+			res.status(204).send();
+		  })
+		  .catch((err: any) => {
+			if (err.kind === "ObjectId") {
+			  // something was wrong with the job id
+			  return res.status(404).send({
+				message: "Job not found with id " + req.params.id,
+			  });
+			}
+	
+			// something else went wrong
+			return res.status(500).send({
+			  message: "Error updating job with id " + req.params.id,
+			});
+		  });
+	  },
 }
 
 export default BatchController;
