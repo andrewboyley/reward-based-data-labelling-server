@@ -42,6 +42,29 @@ let BatchController = {
       });
   },
 
+  determineAvailableBatches: async (
+    userId: Mongoose.Types.ObjectId,
+    jobId: Mongoose.Types.ObjectId,
+    numLabellersRequired: number
+  ) => {
+    // find all batches in this job that:
+    // 1) we have not labelled before
+    // 2) can still be labelled
+    const batches: any = await BatchModel.find({
+      job: jobId, // get batches in the desired job
+      "labellers.labeller": { $ne: userId }, // satisfies (1)
+    }).$where("this.labellers.length < " + numLabellersRequired); // satisfies (2)
+
+    if (batches === null) {
+      // something went wrong, return null
+      return null;
+    } else {
+      // all these batches are available to us still
+      // return a valid batch, or an empty obj
+      return batches.length === 0 ? {} : batches[0];
+    }
+  },
+
   findNext: async (req: Request, res: Response, next: NextFunction) => {
     // return the next batch, if it exists
     // else return empty obj
@@ -60,22 +83,20 @@ let BatchController = {
     // check that we did not author this job happened in previous request
     // only time a call will be made directly here is when have already done a batch in this job
 
-    // find all batches in this job that:
-    // 1) we have not labelled before
-    // 2) can still be labelled
-    BatchModel.find({
-      job: job._id, // get batches in the desired job
-      "labellers.labeller": { $ne: userObjectId }, // satisfies (1)
-    })
-      .$where("this.labellers.length < " + job.numLabellersRequired) // satisfies (2)
-      .then((batches: any) => {
-        // all these batches are available to us still
-        const returnBatch = batches.length === 0 ? {} : batches[0];
-        res.status(200).json(returnBatch);
-      })
-      .catch((err: any) => {
-        return res.status(400).json({ error: "Something went wrong" });
-      });
+    // determine available batches for this job
+    const batches = await BatchController.determineAvailableBatches(
+      userObjectId,
+      job._id,
+      job.numLabellersRequired
+    );
+
+    if (batches !== null) {
+      // nothing went wrong
+      res.status(200).json(batches);
+    } else {
+      // something went wrong
+      return res.status(400).json({ error: "Something went wrong" });
+    }
   },
 
   addLabeller: async (req: Request, res: Response, next: NextFunction) => {
