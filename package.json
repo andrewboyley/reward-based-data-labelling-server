@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/server.js",
   "scripts": {
+    "serve": "node --version",
     "start": "tsc && nodemon",
     "build": "tsc",
     "tests": "export NODE_ENV=test && nyc mocha --recursive --timeout 5000 --exit -r ts-node/register tests/**/*.test.ts",
@@ -33,7 +34,6 @@
     "express": "^4.17.1",
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.12.3",
-    "mongoose-sequence": "^5.3.1",
     "multer": "^1.4.2",
     "nanoid": "^3.1.22"
   },

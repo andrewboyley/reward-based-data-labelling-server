@@ -1,10 +1,9 @@
 import mongoose, { Schema } from "mongoose";
-const AutoIncrement = require('mongoose-sequence')(mongoose);
 // create user schema
 const BatchSchema: any = new Schema(
 	{
 		// the batch number, will be an auto-increment
-		index: Number,
+		batch_number: Number,
 
 		// job the batch belongs to
 		job: {
@@ -34,6 +33,5 @@ const BatchSchema: any = new Schema(
 	},
 );
 
-BatchSchema.plugin(AutoIncrement, { inc_field: 'index' });
 var BatchModel = mongoose.model("Batch", BatchSchema);
 export default BatchModel;

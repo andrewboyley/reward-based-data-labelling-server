@@ -25,6 +25,12 @@ const LabelledItemModel: any = new schema({
     type: String,
     required: [true, "Value not provided"],
   },
+
+  batchNumber: {
+    type: Number,
+    default: -1
+  },
+
 });
 
 // create model

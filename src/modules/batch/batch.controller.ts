@@ -3,21 +3,27 @@ import Mongoose, { Schema } from "mongoose";
 import BatchModel from "./batch.model";
 
 let BatchController = {
-	create: async (req: Request, res: Response, next: NextFunction) => {
-		let newBatch = new BatchModel(req.body);
-		newBatch.save().then((data: any) => {
-			res.status(201).send(data);
-		}).catch((err: any) => {
-			if (err.message) {
-				res.status(422).send({
-					message: err.message,
-				});
-			} else {
-				res.status(500).send({
-					message: "Something went wrong while creating the batch."
-				})
-			}
-		})
+	// create: async (req: Request, res: Response, next: NextFunction) => {
+	// 	let newBatch = new BatchModel(req.body);
+	// 	newBatch.save().then((data: any) => {
+	// 		res.status(201).send(data);
+	// 	}).catch((err: any) => {
+	// 		if (err.message) {
+	// 			res.status(422).send({
+	// 				message: err.message,
+	// 			});
+	// 		} else {
+	// 			res.status(500).send({
+	// 				message: "Something went wrong while creating the batch."
+	// 			})
+	// 		}
+	// 	})
+	// },
+
+	create: async (batchNumber: number, jobID: Mongoose.Types.ObjectId) =>{
+		BatchModel.create({batch_number: batchNumber, job: jobID}).then((batch: any) =>{
+		}
+	)
 	},
 
 
