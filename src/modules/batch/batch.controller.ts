@@ -82,21 +82,21 @@ let BatchController = {
     // check that a labeller has been provided
     if (!req.body) {
       return res.status(400).send({
-        message: "Data not recieved correctly",
+        message: "Data not receive correctly",
       });
     }
 
-    // add the labeller to the job
+    // add the labeller to the job's batch
     BatchModel.findByIdAndUpdate(
-      req.params.id,
-      { $push: { labellers: req.body.userId } },
+      req.params.batch,
+      { $push: { labellers: { labeller: req.body.userId } } },
       { new: true }
     )
-      .then((job: any) => {
-        if (!job) {
-          // invalid job id was provided
+      .then((batch: any) => {
+        if (!batch) {
+          // invalid batch id was provided
           return res.status(404).send({
-            message: "Job not found with id " + req.params.id,
+            message: "Batch not found with id " + req.params.batch,
           });
         }
         // return successful update - 204 means no body (not required for PUT)
@@ -106,13 +106,13 @@ let BatchController = {
         if (err.kind === "ObjectId") {
           // something was wrong with the job id
           return res.status(404).send({
-            message: "Job not found with id " + req.params.id,
+            message: "Batch not found with id " + req.params.batch,
           });
         }
 
         // something else went wrong
         return res.status(500).send({
-          message: "Error updating job with id " + req.params.id,
+          message: "Error updating batch with id " + req.params.batch,
         });
       });
   },
