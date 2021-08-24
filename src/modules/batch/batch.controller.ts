@@ -47,6 +47,9 @@ let BatchController = {
     jobId: Mongoose.Types.ObjectId,
     numLabellersRequired: number
   ) => {
+    // return the next batch, if it exists
+    // else return empty obj
+
     // find all batches in this job that:
     // 1) we have not labelled before
     // 2) can still be labelled

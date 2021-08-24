@@ -73,20 +73,21 @@ let JobController = {
         // can the current user accept this job
         const currentUserId = req.body.userId;
 
+        // todo - rework how check if can label
         job = job.toObject();
-        const labellers = Object.values(job.labellers);
+        // const labellers = Object.values(job.labellers);
         let isLabeller = false;
-        for (let labeller of labellers) {
-          if (labeller == currentUserId) {
-            isLabeller = true;
-            break;
-          }
-        }
+        // for (let labeller of labellers) {
+        //   if (labeller == currentUserId) {
+        //     isLabeller = true;
+        //     break;
+        //   }
+        // }
 
         // the user can accept the job if he didn't create it, hasn't accepted it and there are still slots available
         job.canAccept =
           !isLabeller &&
-          job.labellers.length < job.numLabellersRequired &&
+          // job.labellers.length < job.numLabellersRequired &&
           job.author != currentUserId;
 
         // return the job
@@ -218,6 +219,14 @@ let JobController = {
   },
 
   addLabeller: async (req: Request, res: Response, next: NextFunction) => {
+    /* 
+    
+    This function will only be called the first time a user accepts the job.
+    They should be assigned a batch.
+    Later, a direct call to the Batches will be made to accept another batch
+    
+    */
+
     // check that a labeller has been provided
     if (!req.body) {
       return res.status(400).send({
@@ -225,21 +234,49 @@ let JobController = {
       });
     }
 
-    // add the labeller to the job
-    JobModel.findByIdAndUpdate(
-      req.params.id,
-      { $push: { labellers: req.body.userId } },
-      { new: true }
-    )
-      .then((job: any) => {
+    // get the job we want to accept
+    JobModel.findById(req.params.id)
+      .then(async (job: any) => {
         if (!job) {
           // invalid job id was provided
           return res.status(404).send({
             message: "Job not found with id " + req.params.id,
           });
         }
-        // return successful update - 204 means no body (not required for PUT)
-        res.status(204).send();
+
+        // job is valid
+
+        // find an available batch to accept
+        const batch = await BatchController.determineAvailableBatches(
+          req.body.userId,
+          job._id,
+          job.numLabellersRequired
+        );
+
+        // check batch is valid
+        if (batch) {
+          // batch is valid
+
+          if (Object.keys(batch).length !== 0) {
+            // batch is non-empty
+            // batch available to accept
+
+            // now need to call the accept-batch functions
+            // prepare the req parameters for the next function
+            req.params.batch = batch._id;
+            BatchController.addLabeller(req, res, next);
+            return;
+          } else {
+            // no batch available to accept
+            res
+              .status(400)
+              .send({ message: "No batches available to be accepted" });
+          }
+        } else {
+          res.status(500).send({
+            message: "An error occurred whilst finding a batch to accept",
+          });
+        }
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
@@ -254,6 +291,36 @@ let JobController = {
           message: "Error updating job with id " + req.params.id,
         });
       });
+
+    // add the labeller to the job
+    // JobModel.findByIdAndUpdate(
+    //   req.params.id,
+    //   { $push: { labellers: req.body.userId } },
+    //   { new: true }
+    // )
+    //   .then((job: any) => {
+    //     if (!job) {
+    //       // invalid job id was provided
+    //       return res.status(404).send({
+    //         message: "Job not found with id " + req.params.id,
+    //       });
+    //     }
+    //     // return successful update - 204 means no body (not required for PUT)
+    //     res.status(204).send();
+    //   })
+    //   .catch((err: any) => {
+    //     if (err.kind === "ObjectId") {
+    //       // something was wrong with the job id
+    //       return res.status(404).send({
+    //         message: "Job not found with id " + req.params.id,
+    //       });
+    //     }
+
+    //     // something else went wrong
+    //     return res.status(500).send({
+    //       message: "Error updating job with id " + req.params.id,
+    //     });
+    //   });
   },
 
   delete: async (req: Request, res: Response, next: NextFunction) => {
