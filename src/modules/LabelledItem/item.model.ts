@@ -13,11 +13,20 @@ const LabelledItemModel: any = new schema({
   },
 
   // todo - change this to an array so can assign multiple labels to the image
-  label: {
-    // the label assigned to this data item
-    type: String,
-    default: "not_labelled",
-  },
+  label: [{
+    labeller: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "Labeller not provided"],
+    },
+    value: {
+      // the label assigned to this data item
+      type: String,
+      default: "not_labelled",
+      required: [true, "Label value not provided"],
+    },
+  }
+  ],
 
   // is the actual data value
   // for images, path to image
@@ -28,9 +37,8 @@ const LabelledItemModel: any = new schema({
 
   batchNumber: {
     type: Number,
-    default: -1
+    default: -1,
   },
-
 });
 
 // create model
