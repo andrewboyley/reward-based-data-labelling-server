@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import BatchController from "../batch/batch.controller";
+import BatchModel from "../batch/batch.model";
 import JobModel from "./job.model";
 
 const numItemsAggregated = 4;
@@ -115,25 +116,42 @@ let JobController = {
     const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all jobs where user is not the author
-    // AND where user is not labeller
-    // AND where there are still labelling slots available
+    // AND where if user is labeller
+    // AND where there are still labelling slots on a batch available
     JobModel.find({
       author: { $ne: userObjectId },
     })
-      // .$where("this.labellers.length < this.numLabellersRequired")
       .then(async (jobs: any) => {
         // all these jobs were not authored by us
         const availableJobs = [];
 
         // need to check the batches - not labelled, and still labelling slots open
         for (let job of jobs) {
-          const batch = await BatchController.determineAvailableBatches(
+          // find any batches that we accepted previously AND which are NOT completed
+          let batches: any = await BatchModel.find({
+            job: job._id, // get batches in the desired job
+            "labellers.labeller": userObjectId, // get batches that I have labelled
+            "labellers.completed": false, // we have not completed this batch
+          });
+
+          // if batches is not empty, means we have in-progress batches still - means job is not availble
+          if (batches) {
+            if (batches.length !== 0) continue;
+          } else {
+            continue;
+          }
+
+          // have no in-progress batches, check if there are still batches we can accept
+
+          batches = await BatchController.determineAvailableBatches(
             userObjectId,
             job._id,
             job.numLabellersRequired
           );
 
-          if (batch !== null && Object.keys(batch).length !== 0) {
+          // if batches is null, an error occurred
+          // if batches array is not empty, have an available batch
+          if (batches !== null && batches.length !== 0) {
             // job is valid if it has a valid, non-empty batch
             availableJobs.push(job);
           }
@@ -164,22 +182,38 @@ let JobController = {
       });
   },
 
-  // find accepted jobs - jobs that aren't mine and I have accepted
+  // find accepted jobs - jobs that aren't mine and I am labelling an in-progress batch
   // need user id
   findAccepted: async (req: Request, res: Response, next: NextFunction) => {
     // extract the user id from the request
     const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
-    // find all jobs where user is in labellers
-    JobModel.find({
-      labellers: userObjectId,
+    // find all batches where user is a labeller AND is not completed
+    BatchModel.distinct("job", {
+      "labellers.labeller": userObjectId, // get batches that I have labelled
+      "labellers.completed": false, // we have not completed this batch
     })
-      .then((jobs: any) => {
-        res.json(jobs);
+      .then((batchJobs: any) => {
+        // all these jobs are currently in-progress
+        // fetch these jobs and return then
+        // console.log(Object.values(jobs));
+        JobModel.find({
+          _id: { $in: batchJobs },
+        }).then((jobs: any) => {
+          res.send(jobs);
+        });
       })
       .catch((err: any) => {
         return res.status(400).json({ error: "Something went wrong" });
       });
+
+    // find all jobs where user is in labellers
+    // JobModel.find({
+    //   labellers: userObjectId,
+    // })
+    //   .then((jobs: any) => {
+    //     res.json(jobs);
+    //   })
   },
 
   update: async (req: Request, res: Response, next: NextFunction) => {
@@ -247,23 +281,22 @@ let JobController = {
         // job is valid
 
         // find an available batch to accept
-        const batch = await BatchController.determineAvailableBatches(
+        const batches = await BatchController.determineAvailableBatches(
           req.body.userId,
           job._id,
           job.numLabellersRequired
         );
 
-        // check batch is valid
-        if (batch) {
-          // batch is valid
+        // check batches is valid
+        if (batches) {
+          // batches is valid
 
-          if (Object.keys(batch).length !== 0) {
-            // batch is non-empty
-            // batch available to accept
+          if (batches.length !== 0) {
+            // a batch is available to accept
 
             // now need to call the accept-batch functions
             // prepare the req parameters for the next function
-            req.params.batch = batch._id;
+            req.params.batch = batches[0]._id;
             BatchController.addLabeller(req, res, next);
             return;
           } else {

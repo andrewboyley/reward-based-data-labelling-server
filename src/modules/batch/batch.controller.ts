@@ -47,8 +47,7 @@ let BatchController = {
     jobId: Mongoose.Types.ObjectId,
     numLabellersRequired: number
   ) => {
-    // return the next batch, if it exists
-    // else return empty obj
+    // return valid batches, or an empty arr
 
     // find all batches in this job that:
     // 1) we have not labelled before
@@ -63,8 +62,9 @@ let BatchController = {
       return null;
     } else {
       // all these batches are available to us still
-      // return a valid batch, or an empty obj
-      return batches.length === 0 ? {} : batches[0];
+      // return valid batches
+      // return batches.length === 0 ? {} : batches;
+      return batches;
     }
   },
 
@@ -95,7 +95,8 @@ let BatchController = {
 
     if (batches !== null) {
       // nothing went wrong
-      res.status(200).json(batches);
+      // return empty obj if no batch available, otherwise return a single batch
+      res.status(200).json(batches.length === 0 ? {} : batches[0]);
     } else {
       // something went wrong
       return res.status(400).json({ error: "Something went wrong" });
