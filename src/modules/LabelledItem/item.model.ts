@@ -12,20 +12,20 @@ const LabelledItemModel: any = new schema({
     ref: "Job",
   },
 
-  // todo - change this to an array so can assign multiple labels to the image
-  label: [{
-    labeller: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Labeller not provided"],
+  labels: [
+    {
+      labeller: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: [true, "Labeller not provided"],
+      },
+      value: {
+        // the label assigned to this data item
+        type: String,
+        default: "not_labelled",
+        required: [true, "Label value not provided"],
+      },
     },
-    value: {
-      // the label assigned to this data item
-      type: String,
-      default: "not_labelled",
-      required: [true, "Label value not provided"],
-    },
-  }
   ],
 
   // is the actual data value

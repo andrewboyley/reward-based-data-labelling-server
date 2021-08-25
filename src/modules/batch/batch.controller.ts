@@ -1,26 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import JobModel from "../job/job.model";
+import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
+import multer from "multer"; // DO NOT REMOVE - typescript things
 
 let BatchController = {
-  // create: async (req: Request, res: Response, next: NextFunction) => {
-  // 	let newBatch = new BatchModel(req.body);
-  // 	newBatch.save().then((data: any) => {
-  // 		res.status(201).send(data);
-  // 	}).catch((err: any) => {
-  // 		if (err.message) {
-  // 			res.status(422).send({
-  // 				message: err.message,
-  // 			});
-  // 		} else {
-  // 			res.status(500).send({
-  // 				message: "Something went wrong while creating the batch."
-  // 			})
-  // 		}
-  // 	})
-  // },
-
   create: async (batchNumber: number, jobID: Mongoose.Types.ObjectId) => {
     BatchModel.create({ batch_number: batchNumber, job: jobID }).then(
       (batch: any) => {}
@@ -138,6 +123,91 @@ let BatchController = {
         // something else went wrong
         return res.status(500).send({
           message: "Error updating batch with id " + req.params.batch,
+        });
+      });
+  },
+
+  removeLabeller: async (req: Request, res: Response, next: NextFunction) => {
+    // remove the labeller from the batch IF:
+    // (1) the batch is NOT completed for user
+    // if we do remove the labeller from the batch, we need to clean up the image labels from this batch
+
+    // batchID is in params
+    BatchModel.findById(req.params.batch)
+      .then((batch: any) => {
+        // batch with that ID doesn't exist
+        if (!batch) {
+          return res.status(404).send({
+            message: "Batch not found with id " + req.params.batch,
+          });
+        }
+
+        // we now have the batch
+
+        // check the completed flag
+        const labeller = batch.labellers.find((element: any) => {
+          if (
+            Mongoose.Types.ObjectId(element.labeller).equals(
+              Mongoose.Types.ObjectId(req.body.userId)
+            )
+          ) {
+            return element;
+          }
+        });
+
+        if (labeller.completed === false) {
+          // valid remove operation
+          // (1) remove the image labels assigned by this user
+          ItemController.removeUserLabels(
+            batch.job,
+            batch.batchNumber,
+            req.body.userId
+          ).then((status: boolean) => {
+            if (status) {
+              // remove labels was successful
+              // (2) remove the user from this batch's labellers
+              BatchModel.findByIdAndUpdate(
+                req.params.batch,
+                { $pull: { labellers: { labeller: req.body.userId } } },
+                { new: true }
+              )
+                .then((updatedBatch: any) => {
+                  // successful
+                  res.status(204).send();
+                })
+                .catch((error: any) => {
+                  // something went wrong
+                  res.status(400).send({
+                    message:
+                      "The image labels were removed, but an error occurred removing the user as a labeller",
+                  });
+                });
+            } else {
+              //remove labels was unsuccessful
+              res.status(400).send({
+                message: "An error occurred whilst removing image labels",
+              });
+            }
+          });
+        } else {
+          // trying to remove from a completed job ??????
+          res.status(400).send({
+            message: "Cannot remove user from a completed batch",
+          });
+        }
+      })
+      .catch((error: any) => {
+        if (error.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Batch not found with id " + req.params.batch,
+          });
+        }
+
+        // some other error occurred
+        console.log(error);
+        return res.status(500).send({
+          message: "Error retrieving batch with id " + req.params.batch,
         });
       });
   },

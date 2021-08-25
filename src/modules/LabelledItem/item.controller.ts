@@ -76,6 +76,25 @@ let ItemController = {
         });
       });
   },
+
+  removeUserLabels: async (
+    jobId: Mongoose.Types.ObjectId,
+    batchNumber: number,
+    userId: Mongoose.Types.ObjectId
+  ) => {
+    // find all the image belonging to this batch in this job
+    // remove the labels assigned by this user from all of them
+    // returns a boolean value indicating if the operations were successful or not
+    const result = await LabelledItemModel.updateMany(
+      {
+        job: jobId,
+        batchNumber: batchNumber,
+      },
+      { $pull: { labels: { labeller: userId } } }
+    );
+
+    return result ? true : false;
+  },
 };
 
 export default ItemController;
