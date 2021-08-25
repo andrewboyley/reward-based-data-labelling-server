@@ -160,7 +160,7 @@ let BatchController = {
           // (1) remove the image labels assigned by this user
           ItemController.removeUserLabels(
             batch.job,
-            batch.batchNumber,
+            batch.batch_number,
             req.body.userId
           ).then((status: boolean) => {
             if (status) {
