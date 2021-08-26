@@ -110,7 +110,7 @@ let BatchController = {
           });
         }
         // return successful update - 204 means no body (not required for PUT)
-        res.status(204).send();
+        res.status(200).send(batch);
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
