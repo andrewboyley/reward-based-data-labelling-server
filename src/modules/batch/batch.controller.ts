@@ -27,6 +27,49 @@ let BatchController = {
       });
   },
 
+  findOneComplete: async (req: Request, res: Response, next: NextFunction) => {
+    // receive batchID as a param
+    // find the batch number and the job id
+    // find all the associated images, and return them as well
+
+    BatchModel.findById(req.params.id)
+      .then((batch: any) => {
+        if (!batch) {
+          // no batch with ID found
+          return res.status(404).json({
+            message: "Batch not found with id " + req.params.id,
+          });
+        }
+
+        // batch found
+        // need to get related images
+        ItemController.findImagesInBatch(batch.job, batch.batch_number)
+          .then((images: any) => {
+            if (images) {
+              // these images are all valid
+              // add them to the batch object
+              batch = batch.toObject();
+              batch.images = images;
+
+              // return the entire batch
+              res.status(200).json(batch);
+            } else {
+              // if images is null, something went wrong
+              return res.status(500).json({
+                message:
+                  "Something went wrong retrieving batch " + req.params.id,
+              });
+            }
+          })
+          .catch((err: any) => {
+            return res.status(500).json({ message: err.message });
+          });
+      })
+      .catch((err: any) => {
+        return res.status(500).json({ message: err.message });
+      });
+  },
+
   determineAvailableBatches: async (
     userId: Mongoose.Types.ObjectId,
     jobId: Mongoose.Types.ObjectId,

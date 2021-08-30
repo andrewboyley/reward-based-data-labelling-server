@@ -95,6 +95,27 @@ let ItemController = {
 
     return result ? true : false;
   },
+
+  findImagesInBatch: async (
+    jobId: Mongoose.Types.ObjectId,
+    batchNumber: number
+  ) => {
+    // find all the images belonging to this batch for this job
+
+    const images = await LabelledItemModel.find({
+      job: jobId,
+      batchNumber: batchNumber,
+    });
+
+    return images;
+    // if (images) {
+    //   // successful
+    //   return images;
+    // } else {
+    //   // somethig went wrong
+    //   return null;
+    // }
+  },
 };
 
 export default ItemController;
