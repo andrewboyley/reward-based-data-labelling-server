@@ -144,7 +144,7 @@ let BatchController = {
 
         // we now have the batch
 
-        // check the completed flag
+        // get the correct labeller doing that batch
         const labeller = batch.labellers.find((element: any) => {
           if (
             Mongoose.Types.ObjectId(element.labeller).equals(
@@ -155,6 +155,7 @@ let BatchController = {
           }
         });
 
+        // check the completed flag
         if (labeller.completed === false) {
           // valid remove operation
           // (1) remove the image labels assigned by this user
@@ -212,5 +213,12 @@ let BatchController = {
       });
   },
 };
+
+// every 5 minutes, check if a batch has expired
+const intervalMinutes = 5;
+setInterval(function () {
+  // get all batches where the current time is greater than or equal to the expiry time, and flag is false
+  // call remove labeller on each of these batches, for that particular labeller
+}, intervalMinutes * 60 * 1000); // convert to milliseconds
 
 export default BatchController;
