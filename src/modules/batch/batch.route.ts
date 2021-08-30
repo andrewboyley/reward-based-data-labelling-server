@@ -5,7 +5,7 @@ const VerifyToken = require("../auth/VerifyToken");
 const router = express.Router();
 router.get("/", BatchController.findAll);
 router.get("/next/:job", VerifyToken, BatchController.findNext); // return the next batch available number
-router.get("/:id", BatchController.findOneComplete); // get a particular batch with id
+router.get("/:id", VerifyToken, BatchController.findOneComplete); // get a particular batch with id
 
 router.put("/labeller/:batch", VerifyToken, BatchController.addLabeller); //Adds the labeller to the batch, batch is the batchID
 
