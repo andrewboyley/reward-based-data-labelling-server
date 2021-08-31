@@ -10,7 +10,9 @@ router.get("/available", VerifyToken, JobController.findAvailable); // get jobs 
 router.get("/authored", VerifyToken, JobController.findAuthored); // get jobs that user authored
 router.get("/accepted", VerifyToken, JobController.findAccepted); // get jobs that user accepted
 router.get("/:id", VerifyToken, JobController.findOne);
+
 router.post("/", VerifyToken, JobController.create); // create a job
+
 router.put("/:id", JobController.update);
 router.put("/labeller/:id", VerifyToken, JobController.addLabeller); // id is the job id
 

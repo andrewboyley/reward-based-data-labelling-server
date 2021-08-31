@@ -92,7 +92,7 @@ let JobController = {
   findOne: async (req: Request, res: Response, next: NextFunction) => {
     // find job with the given id
     JobModel.findById(req.params.id)
-      .then((job: any) => {
+      .then(async (job: any) => {
         if (!job) {
           // the job with that id doesn't exist
           return res.status(404).send({
@@ -101,27 +101,27 @@ let JobController = {
         }
 
         // can the current user accept this job
-        const currentUserId = req.body.userId;
+        const currentUserId = req.body.userId; // DO NOT TOUCH
 
-        // todo - rework how check if can label
         job = job.toObject();
-        // const labellers = Object.values(job.labellers);
-        let isLabeller = false;
-        // for (let labeller of labellers) {
-        //   if (labeller == currentUserId) {
-        //     isLabeller = true;
-        //     break;
-        //   }
-        // }
 
-        // the user can accept the job if he didn't create it, hasn't accepted it and there are still slots available
-        job.canAccept =
-          !isLabeller &&
-          // job.labellers.length < job.numLabellersRequired &&
-          job.author != currentUserId;
+        // check I am not the author
+        let canAccept: boolean = job.author != currentUserId; // DO NOT TOUCH
+
+        if (canAccept) {
+          // I am not the author
+
+          // check that we are not currently labelling a batch
+          // AND that there are still batches for us
+          canAccept =
+            canAccept && (await checkIfBatchIsAvailable(job, currentUserId));
+        }
+
+        // add the flag to the response
+        job.canAccept = canAccept;
 
         // return the job
-        res.send(job);
+        res.status(200).send(job);
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
