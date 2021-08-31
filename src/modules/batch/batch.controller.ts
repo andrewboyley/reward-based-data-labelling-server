@@ -49,6 +49,9 @@ let BatchController = {
               // these images are all valid
               // add them to the batch object
               batch = batch.toObject();
+
+              // todo - in the labels array, remove all users except the current user
+
               batch.images = images;
 
               // return the entire batch

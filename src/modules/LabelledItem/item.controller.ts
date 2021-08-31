@@ -68,7 +68,11 @@ let ItemController = {
     var batchid = req.params.batchid;
     var itemid = req.params.labelid;
     var itemLabels = req.body.labels;
-    LabelledItemModel.findOne({ _id: itemid, job: jobId, batchNumber: batchid }).then((labelledItem: any) => {
+    LabelledItemModel.findOne({
+      _id: itemid,
+      job: jobId,
+      batchNumber: batchid,
+    }).then((labelledItem: any) => {
       itemLabels.forEach((label: string) => {
         labelledItem.labels.push({ labeller: req.body.userId, value: label });
       });
@@ -92,8 +96,6 @@ let ItemController = {
           }
         });
     });
-
-
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {
@@ -141,13 +143,6 @@ let ItemController = {
     });
 
     return images;
-    // if (images) {
-    //   // successful
-    //   return images;
-    // } else {
-    //   // somethig went wrong
-    //   return null;
-    // }
   },
 };
 

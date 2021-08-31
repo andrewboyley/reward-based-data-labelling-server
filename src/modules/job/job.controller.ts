@@ -195,31 +195,38 @@ let JobController = {
     const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
 
     // find all batches where user is a labeller AND is not completed
-    BatchModel.distinct("job", {
+    BatchModel.find({
       "labellers.labeller": userObjectId, // get batches that I have labelled
       "labellers.completed": false, // we have not completed this batch
     })
-      .then((batchJobs: any) => {
+      .then(async (batchJobs: any) => {
         // all these jobs are currently in-progress
         // fetch these jobs and return then
-        // console.log(Object.values(jobs));
-        JobModel.find({
-          _id: { $in: batchJobs },
-        }).then((jobs: any) => {
-          res.send(jobs);
-        });
+
+        const acceptedJobs = [];
+
+        // loop through the batches which the user is currently labelling
+        for (let batch of batchJobs) {
+          // get the corresponding job
+          let job: any = await JobModel.findById(batch.job);
+
+          // check the job is valid
+          if (job) {
+            // add the batch ID that triggered the 'accept' to the job object
+            job = job.toObject();
+            job.batch_id = batch._id;
+
+            // add the modified job to an array, which will be returned
+            acceptedJobs.push(job);
+          }
+        }
+
+        // return all the accepted jobs, with the batch id that triggered the 'accept'
+        res.status(200).json(acceptedJobs);
       })
       .catch((err: any) => {
         return res.status(400).json({ error: "Something went wrong" });
       });
-
-    // find all jobs where user is in labellers
-    // JobModel.find({
-    //   labellers: userObjectId,
-    // })
-    //   .then((jobs: any) => {
-    //     res.json(jobs);
-    //   })
   },
 
   update: async (req: Request, res: Response, next: NextFunction) => {
