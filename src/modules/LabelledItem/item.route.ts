@@ -3,6 +3,7 @@ import fs from "fs";
 import express, { Express, Request } from "express";
 import LabelledItem from "./item.controller";
 import { nanoid } from "nanoid";
+const VerifyToken = require("../auth/VerifyToken");
 
 // set up multer for storing uploaded files
 
@@ -44,5 +45,7 @@ const router = express.Router();
 
 router.get("/", LabelledItem.findAll); // return all data corresponding to a job id (in body)
 router.post("/", upload.array("image"), LabelledItem.addItem); // save an image and add it to the relevant collections
+
+router.put("/:jobid/:batchid/:labelid", VerifyToken, LabelledItem.updateLabel);
 
 module.exports = router;
