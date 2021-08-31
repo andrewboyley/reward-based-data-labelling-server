@@ -4,7 +4,36 @@ import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
 import JobModel from "./job.model";
 
-const numItemsAggregated = 4;
+async function checkIfBatchIsAvailable(
+  job: any,
+  userObjectId: Mongoose.Types.ObjectId
+) {
+  // find any batches that we accepted previously AND which are NOT completed
+  let batches: any = await BatchModel.find({
+    job: job._id, // get batches in the desired job
+    "labellers.labeller": userObjectId, // get batches that I have labelled
+    "labellers.completed": false, // we have not completed this batch
+  });
+
+  // if batches is not empty, means we have in-progress batches still - means job is not availble
+  if (batches) {
+    if (batches.length !== 0) return false;
+  } else {
+    return false;
+  }
+
+  // have no in-progress batches, check if there are still batches we can accept
+  batches = await BatchController.determineAvailableBatches(
+    userObjectId,
+    job._id,
+    job.numLabellersRequired
+  );
+
+  // if batches is null, an error occurred
+  // if batches array is not empty, have an available batch
+  // job is valid if it has a valid, non-empty batch
+  return batches !== null && batches.length !== 0;
+}
 
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
@@ -127,32 +156,9 @@ let JobController = {
 
         // need to check the batches - not labelled, and still labelling slots open
         for (let job of jobs) {
-          // find any batches that we accepted previously AND which are NOT completed
-          let batches: any = await BatchModel.find({
-            job: job._id, // get batches in the desired job
-            "labellers.labeller": userObjectId, // get batches that I have labelled
-            "labellers.completed": false, // we have not completed this batch
-          });
-
-          // if batches is not empty, means we have in-progress batches still - means job is not availble
-          if (batches) {
-            if (batches.length !== 0) continue;
-          } else {
-            continue;
-          }
-
-          // have no in-progress batches, check if there are still batches we can accept
-
-          batches = await BatchController.determineAvailableBatches(
-            userObjectId,
-            job._id,
-            job.numLabellersRequired
-          );
-
-          // if batches is null, an error occurred
-          // if batches array is not empty, have an available batch
-          if (batches !== null && batches.length !== 0) {
-            // job is valid if it has a valid, non-empty batch
+          // check if this job has a batch available to this user
+          if (await checkIfBatchIsAvailable(job, userObjectId)) {
+            // if a batch is available to accept, then this job is available to accept
             availableJobs.push(job);
           }
         }
