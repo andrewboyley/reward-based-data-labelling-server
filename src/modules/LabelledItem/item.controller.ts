@@ -63,6 +63,39 @@ let ItemController = {
     res.status(200).send("OK");
   },
 
+  updateLabel: async (req: Request, res: Response, next: NextFunction) => {
+    var jobId = req.params.jobid;
+    var batchid = req.params.batchid;
+    var itemid = req.params.labelid;
+    var itemLabels = req.body.labels;
+    LabelledItemModel.findOne({ _id: itemid, job: jobId, batchNumber: batchid }).then((labelledItem: any) => {
+      itemLabels.forEach((label: string) => {
+        labelledItem.labels.push({ labeller: req.body.userId, value: label });
+      });
+
+      itemLabels
+        .save()
+        .then((data: any) => {
+          // job created successfully - return the created object
+          res.status(201).send(data);
+        })
+        .catch((err: any) => {
+          if (err.message) {
+            res.status(422).send({
+              message: err.message,
+            });
+          } else {
+            // some other error occurred
+            res.status(500).send({
+              message: "Some error occurred while creating the job.",
+            });
+          }
+        });
+    });
+
+
+  },
+
   findAll: async (req: Request, res: Response, next: NextFunction) => {
     // return all the data for the specified job
     LabelledItemModel.find({ job: req.query.jobID })
