@@ -5,6 +5,35 @@ import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
 import multer from "multer"; // DO NOT REMOVE - typescript things
 
+async function removeUserLabels(
+  batch: any,
+  userId: Mongoose.Types.ObjectId,
+  res: any
+): Promise<boolean> {
+  // remove the image labels assigned by this user to this batch
+  // return a flag indicating success
+  return await ItemController.removeUserLabels(
+    batch.job,
+    batch.batch_number,
+    userId
+  );
+}
+
+async function removeUserFromBatch(
+  batchId: Mongoose.Types.ObjectId,
+  userId: Mongoose.Types.ObjectId
+): Promise<boolean> {
+  // remove the user from this batch
+  // return a flag indicating success
+  const result = await BatchModel.findByIdAndUpdate(
+    batchId,
+    { $pull: { labellers: { labeller: userId } } },
+    { new: true }
+  );
+
+  return result ? true : false;
+}
+
 let BatchController = {
   create: async (batchNumber: number, jobID: Mongoose.Types.ObjectId) => {
     BatchModel.create({ batch_number: batchNumber, job: jobID }).then(
@@ -202,7 +231,7 @@ let BatchController = {
 
     // batchID is in params
     BatchModel.findById(req.params.batch)
-      .then((batch: any) => {
+      .then(async (batch: any) => {
         // batch with that ID doesn't exist
         if (!batch) {
           return res.status(404).send({
@@ -227,37 +256,26 @@ let BatchController = {
         if (labeller.completed === false) {
           // valid remove operation
           // (1) remove the image labels assigned by this user
-          ItemController.removeUserLabels(
-            batch.job,
-            batch.batch_number,
-            req.body.userId
-          ).then((status: boolean) => {
-            if (status) {
-              // remove labels was successful
-              // (2) remove the user from this batch's labellers
-              BatchModel.findByIdAndUpdate(
-                req.params.batch,
-                { $pull: { labellers: { labeller: req.body.userId } } },
-                { new: true }
-              )
-                .then((updatedBatch: any) => {
-                  // successful
-                  res.status(204).send();
-                })
-                .catch((error: any) => {
-                  // something went wrong
-                  res.status(400).send({
-                    message:
-                      "The image labels were removed, but an error occurred removing the user as a labeller",
-                  });
-                });
+
+          if (await removeUserLabels(batch, req.body.userId, res)) {
+            // remove labels was successful
+            // (2) remove the user from this batch's labellers
+            if (await removeUserFromBatch(batch._id, req.body.userId)) {
+              // successful
+              res.status(204).send();
             } else {
-              //remove labels was unsuccessful
+              // something went wrong
               res.status(400).send({
-                message: "An error occurred whilst removing image labels",
+                message:
+                  "The image labels were removed, but an error occurred removing the user as a labeller",
               });
             }
-          });
+          } else {
+            //remove labels was unsuccessful
+            res.status(400).send({
+              message: "An error occurred whilst removing image labels",
+            });
+          }
         } else {
           // trying to remove from a completed job ??????
           res.status(400).send({

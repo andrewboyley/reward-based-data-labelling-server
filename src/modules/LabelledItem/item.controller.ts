@@ -89,7 +89,6 @@ let ItemController = {
         .then((data: any) => {
           // job created successfully - return the created object
           res.status(201).send(itemLabels);
-          console.log(itemLabels);
         })
         .catch((err: any) => {
           if (err.message) {
