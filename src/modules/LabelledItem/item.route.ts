@@ -44,7 +44,7 @@ var upload = multer({ storage: storage });
 const router = express.Router();
 
 router.get("/", LabelledItem.findAll); // return all data corresponding to a job id (in body)
-router.post("/", upload.array("image"), LabelledItem.addItem); // save an image and add it to the relevant collections
+router.post("/", VerifyToken, upload.array("image"), LabelledItem.addItem); // save an image and add it to the relevant collections
 
 router.put("/:labelid", VerifyToken, LabelledItem.updateLabel);
 
