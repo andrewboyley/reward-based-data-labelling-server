@@ -64,20 +64,14 @@ let ItemController = {
   },
 
   updateLabel: async (req: Request, res: Response, next: NextFunction) => {
-    var jobId = req.params.jobid;
-    var batchid = req.params.batchid;
-    var itemid = req.params.labelid;
-    var itemLabels = req.body.labels;
-    LabelledItemModel.findOne({
-      _id: itemid,
-      job: jobId,
-      batchNumber: batchid,
-    }).then((labelledItem: any) => {
+    var itemid:string = req.params.labelid;
+    var itemLabels:string[] = req.body.labels;
+    LabelledItemModel.findById(itemid).then((labelledItem: any) => {
       itemLabels.forEach((label: string) => {
         labelledItem.labels.push({ labeller: req.body.userId, value: label });
       });
 
-      itemLabels
+      labelledItem
         .save()
         .then((data: any) => {
           // job created successfully - return the created object

@@ -46,6 +46,6 @@ const router = express.Router();
 router.get("/", LabelledItem.findAll); // return all data corresponding to a job id (in body)
 router.post("/", upload.array("image"), LabelledItem.addItem); // save an image and add it to the relevant collections
 
-router.put("/:jobid/:batchid/:labelid", VerifyToken, LabelledItem.updateLabel);
+router.put("/:labelid", VerifyToken, LabelledItem.updateLabel);
 
 module.exports = router;
