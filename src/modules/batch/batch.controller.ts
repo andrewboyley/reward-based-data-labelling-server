@@ -7,8 +7,7 @@ import multer from "multer"; // DO NOT REMOVE - typescript things
 
 async function removeUserLabels(
   batch: any,
-  userId: Mongoose.Types.ObjectId,
-  res: any
+  userId: Mongoose.Types.ObjectId
 ): Promise<boolean> {
   // remove the image labels assigned by this user to this batch
   // return a flag indicating success
@@ -257,7 +256,7 @@ let BatchController = {
           // valid remove operation
           // (1) remove the image labels assigned by this user
 
-          if (await removeUserLabels(batch, req.body.userId, res)) {
+          if (await removeUserLabels(batch, req.body.userId)) {
             // remove labels was successful
             // (2) remove the user from this batch's labellers
             if (await removeUserFromBatch(batch._id, req.body.userId)) {
@@ -300,11 +299,61 @@ let BatchController = {
   },
 };
 
-// every 5 minutes, check if a batch has expired
-const intervalMinutes = 5;
-setInterval(function () {
+function manageExpiry() {
+  console.log("Checking if any batches have expired...");
   // get all batches where the current time is greater than or equal to the expiry time, and flag is false
+  const currentTime = new Date().toISOString();
+
+  BatchModel.find({
+    "labellers.completed": false, // batch not completed
+    "labellers.expiry": { $lt: currentTime }, // expiry time is less than current time
+  })
+    .then(async (batches: any) => {
+      // these batches have expired
+
+      // loop through the batches
+      for (let batch of batches) {
+        // valid remove operation
+
+        // loop through all the users labelling this batch
+        const labellers = JSON.parse(JSON.stringify(batch.labellers)); // make a deep copy
+        for (let labeller of labellers) {
+          // check if this labeller has expired
+          if (labeller.completed === false && labeller.expiry < currentTime) {
+            // labeller has expired
+            // make the labeller give up the job
+            const userId = Mongoose.Types.ObjectId(labeller.labeller);
+
+            // (1) remove the image labels assigned by this user
+            if (await removeUserLabels(batch, userId)) {
+              // remove labels was successful
+              // (2) remove the user from this batch's labellers
+              if (await removeUserFromBatch(batch._id, userId)) {
+                // successful
+                console.log(userId + " removed");
+              } else {
+                // something went wrong
+                console.error(
+                  "The image labels were removed, but an error occurred removing the user as a labeller"
+                );
+              }
+            } else {
+              //remove labels was unsuccessful
+              console.error("An error occurred whilst removing image labels");
+            }
+          }
+        }
+      }
+    })
+    .catch((err: any) => {
+      console.error(err);
+    });
+
   // call remove labeller on each of these batches, for that particular labeller
-}, intervalMinutes * 60 * 1000); // convert to milliseconds
+}
+
+// every 15 minutes, check if a batch has expired
+const intervalMinutes = 15;
+setInterval(manageExpiry, intervalMinutes * 60 * 1000); // convert to milliseconds
 
 export default BatchController;

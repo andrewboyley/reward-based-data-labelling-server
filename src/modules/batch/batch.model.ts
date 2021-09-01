@@ -1,8 +1,8 @@
 import mongoose, { Schema } from "mongoose";
 
 // time limit in milliseconds
-// const timeLimitMilliseconds = 24 * 60 * 60 * 1000; // 24 hours
-const timeLimitMilliseconds = 2 * 1000;
+const timeLimitMilliseconds = 24 * 60 * 60 * 1000; // 24 hours
+// const timeLimitMilliseconds = 30 * 1000; // seconds
 
 // create user schema
 const BatchSchema: any = new Schema({
