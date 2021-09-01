@@ -56,10 +56,13 @@ let BatchController = {
                 let image = images[i];
 
                 image = image.toObject();
+
                 // loop through the labellers, looking for the current user
-                for (let labels of image.labels) {
+                let temp: any = image.labels;
+                image.labels = {};
+                for (let labels of temp) {
                   // check if the labeller is the current user
-                  if (labels.labeller == req.body.userId) {
+                  if (String(labels.labeller) == String(req.body.userId)) {
                     // reassign this (labeller, value) pair to the labels property
                     image.labels = labels;
 

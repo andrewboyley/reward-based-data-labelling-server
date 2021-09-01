@@ -64,18 +64,32 @@ let ItemController = {
   },
 
   updateLabel: async (req: Request, res: Response, next: NextFunction) => {
-    var itemid:string = req.params.labelid;
-    var itemLabels:string[] = req.body.labels;
+    var itemid: string = req.params.labelid;
+    var itemLabels: string[] = req.body.labels;
+
     LabelledItemModel.findById(itemid).then((labelledItem: any) => {
-      itemLabels.forEach((label: string) => {
-        labelledItem.labels.push({ labeller: req.body.userId, value: label });
+      // check if this user exists - if yes, remove from labelledItem.labels array
+      for (let i = labelledItem.labels.length - 1; i >= 0; i--) {
+        if (
+          String(req.body.userId) == String(labelledItem.labels[i].labeller)
+        ) {
+          // remove the user's labels
+          labelledItem.labels.splice(i);
+        }
+      }
+
+      // add the new labels to the image
+      labelledItem.labels.push({
+        labeller: req.body.userId,
+        value: itemLabels,
       });
 
       labelledItem
         .save()
         .then((data: any) => {
           // job created successfully - return the created object
-          res.status(201).send(data);
+          res.status(201).send(itemLabels);
+          console.log(itemLabels);
         })
         .catch((err: any) => {
           if (err.message) {

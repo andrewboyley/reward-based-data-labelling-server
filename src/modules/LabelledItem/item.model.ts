@@ -19,12 +19,14 @@ const LabelledItemModel: any = new schema({
         ref: "User",
         required: [true, "Labeller not provided"],
       },
-      value: {
-        // the label assigned to this data item
-        type: String,
-        default: "not_labelled",
-        required: [true, "Label value not provided"],
-      },
+      value: [
+        {
+          // the labels assigned to this data item
+          type: String,
+          default: "not_labelled",
+          required: [true, "Label value not provided"],
+        },
+      ],
     },
   ],
 
