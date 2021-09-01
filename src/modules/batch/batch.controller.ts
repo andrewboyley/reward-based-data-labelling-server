@@ -50,7 +50,26 @@ let BatchController = {
               // add them to the batch object
               batch = batch.toObject();
 
-              // todo - in the labels array, remove all users except the current user
+              // in the labels array, remove all users except the current user
+              // reassign the .labels property to a single object of this user's label(s)
+              for (let i = 0; i < images.length; i++) {
+                let image = images[i];
+
+                image = image.toObject();
+                // loop through the labellers, looking for the current user
+                for (let labels of image.labels) {
+                  // check if the labeller is the current user
+                  if (labels.labeller == req.body.userId) {
+                    // reassign this (labeller, value) pair to the labels property
+                    image.labels = labels;
+
+                    // don't need to check the rest
+                    break;
+                  }
+                }
+
+                images[i] = image;
+              }
 
               batch.images = images;
 
