@@ -4,6 +4,7 @@ import JobModel from "../job/job.model";
 import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
 import multer from "multer"; // DO NOT REMOVE - typescript things
+import JobController from "../job/job.controller";
 
 async function removeUserLabels(
   batch: any,
@@ -297,6 +298,46 @@ let BatchController = {
         });
       });
   },
+
+  batchProgress: async (total_batches:number, jobID: Mongoose.Types.ObjectId)=>{
+		// find the number total bataches completed for a specific job
+		const batchesCompleted : any = await BatchModel.aggregate([{
+			"$match": {
+			  "job": jobID
+			}
+		  },
+		  {
+			"$unwind": {
+			  "path": "$labellers"
+			}
+		  },
+		  {
+			"$match": {
+			  "labellers.completed": true
+			}
+		  },
+		  {
+			"$group": {
+			  "_id": "$job",
+			  "count": {
+				"$sum": 1
+			  }
+			}
+		  }]);
+
+		  const total_progress = (batchesCompleted[1]/total_batches)*100
+
+		  return total_progress
+	},
+  /*
+  findProgress: async (req: Request, res: Response, next: NextFunction) => {
+
+    
+    const jobprogress = await BatchController.batchProgress()
+
+
+  },*/
+
 };
 
 function manageExpiry() {
