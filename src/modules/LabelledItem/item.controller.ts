@@ -9,6 +9,7 @@ import BatchModel from "../batch/batch.model";
 const numItemsAggregated = 4;
 const desiredBatchSize = 10;
 let ItemController = {
+  // add all the pictures, and create the appropriate batches
   addItem: async (req: Request, res: Response, next: NextFunction) => {
     // get job Id from request body
     var jobID = req.body.jobID;
