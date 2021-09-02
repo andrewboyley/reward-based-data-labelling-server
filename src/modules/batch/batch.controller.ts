@@ -178,7 +178,7 @@ let BatchController = {
     if (batches !== null) {
       // nothing went wrong
       // return empty obj if no batch available, otherwise return a single batch
-      res.status(200).json(batches.length === 0 ? {} : batches[0]);
+      res.status(200).json(batches.length === 0 ? "No Batch" : batches[0]);
     } else {
       // something went wrong
       return res.status(400).json({ error: "Something went wrong" });
@@ -299,36 +299,41 @@ let BatchController = {
       });
   },
 
-  batchProgress: async (total_batches:number, jobID: Mongoose.Types.ObjectId)=>{
-		// find the number total bataches completed for a specific job
-		const batchesCompleted : any = await BatchModel.aggregate([{
-			"$match": {
-			  "job": jobID
-			}
-		  },
-		  {
-			"$unwind": {
-			  "path": "$labellers"
-			}
-		  },
-		  {
-			"$match": {
-			  "labellers.completed": true
-			}
-		  },
-		  {
-			"$group": {
-			  "_id": "$job",
-			  "count": {
-				"$sum": 1
-			  }
-			}
-		  }]);
+  batchProgress: async (
+    total_batches: number,
+    jobID: Mongoose.Types.ObjectId
+  ) => {
+    // find the number total bataches completed for a specific job
+    const batchesCompleted: any = await BatchModel.aggregate([
+      {
+        $match: {
+          job: jobID,
+        },
+      },
+      {
+        $unwind: {
+          path: "$labellers",
+        },
+      },
+      {
+        $match: {
+          "labellers.completed": true,
+        },
+      },
+      {
+        $group: {
+          _id: "$job",
+          count: {
+            $sum: 1,
+          },
+        },
+      },
+    ]);
 
-		  const total_progress = (batchesCompleted[1]/total_batches)*100
+    const total_progress = (batchesCompleted[1] / total_batches) * 100;
 
-		  return total_progress
-	},
+    return total_progress;
+  },
   /*
   findProgress: async (req: Request, res: Response, next: NextFunction) => {
 
@@ -337,7 +342,6 @@ let BatchController = {
 
 
   },*/
-
 };
 
 function manageExpiry() {
