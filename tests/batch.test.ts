@@ -1,20 +1,25 @@
 import chai from "chai";
 import chaiHttp from "chai-http";
-
+import rimraf from "rimraf";
 import dbHandler from "../src/db-handler";
 import server from "../src/server";
+import BatchController from "../src/modules/batch/batch.controller";
+import AuthController from "../src/modules/auth/auth.controller";
+import Mongoose from "mongoose";
+
 
 const expect = chai.expect;
 
 chai.use(chaiHttp);
 
-describe("GET /batch", () => {
+describe("Batch functionalities", () => {
 
 	const endpoint = "/api/batch/";
 
 	// dummy data
 	let userToken = "";
-	let dummyJobId: string;
+	let dummyJobId: any;
+	let mockJob: any;
 
 	const user: any = {
 		firstName: "Some",
@@ -71,19 +76,23 @@ describe("GET /batch", () => {
 			.send(dataInsert);
 
 		dummyJobId = res.body._id;
+		mockJob = res.body;
 
 		res = await chai
 			.request(server)
 			.post("/api/images")
 			.set("Content-Type", "multipart/form-data")
+			.set("Authorization", "Bearer " + userToken)
 			.field("jobID", dummyJobId)
 			.attach("image", "tests/test_image/png.png");
 
+		//console.log(res);
 
 	})
 
 	// disconnect from in-memory db
 	after(async function () {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
 		await dbHandler.close();
 	});
 
@@ -97,6 +106,7 @@ describe("GET /batch", () => {
 			.set("Authorization", "Bearer " + userToken)
 			.end((err: any, res: ChaiHttp.Response) => {
 				// check response (and property values where applicable)
+
 				const body = res.body[0];
 
 				expect(err).to.be.null;
@@ -115,5 +125,82 @@ describe("GET /batch", () => {
 			});
 	});
 
+	it("Retrieves one batch and the images with the correct id", (done: any) => {
+		chai
+			.request(server)
+			.get(endpoint)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken).then(res1 => {
+				const mockBatch = res1.body[0];
+				return chai
+					.request(server)
+					.get(endpoint + "/" + mockBatch._id)
+					.set("Content-Type", "application/json; charset=utf-8")
+					.set("Authorization", "Bearer " + userToken);
 
+			}).then(res2 => {
+				expect(res2).to.have.status(200);
+				expect(res2).to.have.header(
+					"Content-Type",
+					"application/json; charset=utf-8"
+				);
+				const body = res2.body;
+				expect(body).to.have.property("images");
+				expect(body.images.length).to.not.equal(0);
+				done();
+			}).catch(done);
+	});
+
+
+	it("Returns error when invalid ID provided", (done: any) => {
+
+		chai
+			.request(server)
+			.get(endpoint + "/" + "badID")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res => {
+				expect(res.status).to.equal(500);
+				done();
+			}).catch(done)
+	});
+
+	it("Determines the available batches", (done: any) => {
+		chai
+			.request(server)
+			.get("/api/auth/id")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken).then(res => {
+				const userID = res.body.id;
+				return BatchController
+					.determineAvailableBatches(userID, dummyJobId, mockJob.numLabellersRequired)
+
+
+			}).then(res => {
+				expect(res.length).to.equal(1);
+				expect(res[0].job.equals(dummyJobId)).to.equal(true);
+				done();
+			}).catch(done);
+
+	})
+
+	it("Return no if no available batches was found", (done: any) => {
+		const badID: any = "4edd40c86762e0fb12000003";
+		chai
+			.request(server)
+			.get("/api/auth/id")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken).then(res => {
+				const userID = res.body.id;
+				return BatchController
+					.determineAvailableBatches(userID, Mongoose.Types.ObjectId(badID), mockJob.numLabellersRequired)
+
+
+			}).then(res => {
+				expect(res.length).to.equal(0);
+
+				done();
+			}).catch(done);
+
+	})
 });
