@@ -10,8 +10,6 @@ const expect = chai.expect;
 
 chai.use(chaiHttp);
 
-function createJob() {}
-
 describe("GET /job", () => {
   // endpoint
   const endpoint = "/api/job";
@@ -19,6 +17,7 @@ describe("GET /job", () => {
   // dummy inserted ids
   let userToken = "";
   let dummyJobId: string;
+  let mockJob: any;
 
   // dummy user insert
   const user: any = {
@@ -76,10 +75,20 @@ describe("GET /job", () => {
       .send(dataInsert);
 
     dummyJobId = res.body._id;
+    mockJob = res.body;
+
+    res = await chai
+      .request(server)
+      .post("/api/images")
+      .set("Content-Type", "multipart/form-data")
+      .set("Authorization", "Bearer " + userToken)
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png");
   });
 
   // disconnect from in-memory db
   after(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
     await dbHandler.close();
   });
 
@@ -300,14 +309,31 @@ describe("GET /job", () => {
     expect(response).to.be.json;
 
     // ensure my id is in the labellers list
-    expect(body).to.have.property("_id");
+    expect(body).to.have.property("_id", dummyJobId);
     expect(body).to.have.property("title");
     expect(body).to.have.property("description");
     expect(body).to.have.property("author");
+    expect(body.author).to.not.equal(acceptId);
     expect(body).to.have.property("dateCreated");
     expect(body).to.have.property("labels");
-    expect(body).to.have.property("labellers");
-    expect(body.labellers).to.contain(acceptId);
+    expect(body).to.have.property("batch_id");
+
+    // get the batch and confirm it is part of this job, with me as a labeller
+    response = await chai
+      .request(server)
+      .get("/api/batch/" + body.batch_id)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + acceptToken)
+      .send();
+
+    // confirm this batch is part of this job
+    expect(response.body).to.have.property("job", dummyJobId);
+
+    // confirm a labeller exists
+    expect(response.body).to.have.property("labellers");
+
+    // check my id is in this property
+    expect(response.body.labellers[0]).to.has.property("labeller", acceptId);
   });
 
   it("Retrieves all available jobs", async () => {
@@ -365,8 +391,20 @@ describe("GET /job", () => {
     expect(body.author).to.not.equal(availableId);
     expect(body).to.have.property("dateCreated");
     expect(body).to.have.property("labels");
-    expect(body).to.have.property("labellers");
-    expect(body.labellers).to.not.contain(availableId);
+
+    // get ALL the batches
+    response = await chai
+      .request(server)
+      .get("/api/batch/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + availableToken)
+      .send();
+
+    // make sure there are no labellers
+    for (let batchBody of response.body) {
+      expect(batchBody).to.have.property("labellers");
+      expect(batchBody.labellers).to.deep.equal([]);
+    }
   });
 });
 
@@ -742,31 +780,17 @@ describe("PUT /job", () => {
 
     chai
       .request(server)
-      .post(endpoint)
-      .set("Content-Type", "multipart/form-data")
+      .put(endpoint + "/labeller/" + dummyJobId) // craft labeller
+      .set("Content-Type", "application/json; charset=utf-8")
       .set("Authorization", "Bearer " + userToken)
-      .field("jobID", dummyJobId)
-      .attach("image", "tests/test_image/png.png")
-      .end(function (err: any, res: ChaiHttp.Response) {
-        // check that the image has been uploaded
-        chai
-          .request(server)
-          .put(endpoint + "/labeller/" + dummyJobId) // craft labeller
-          .set("Content-Type", "application/json; charset=utf-8")
-          .set("Authorization", "Bearer " + userToken)
-          .send({})
-          .end((err: any, res: ChaiHttp.Response) => {
-            // check response (and property values where applicable)
-            expect(err).to.be.null;
-            expect(res).to.have.status(200);
-            expect(res.body).to.have.property("labellers");
-            expect(res.body.labellers[0]).to.have.property("labeller", userId);
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response (and property values where applicable)
+        expect(err).to.be.null;
+        expect(res).to.have.status(200);
+        expect(res.body).to.have.property("labellers");
+        expect(res.body.labellers[0]).to.have.property("labeller", userId);
 
-            // remove the uploaded image
-            rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
-
-            done();
-          });
+        done();
       });
   });
 
