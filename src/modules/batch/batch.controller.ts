@@ -206,7 +206,8 @@ let BatchController = {
             message: "Batch not found with id " + req.params.batch,
           });
         }
-        // return successful update - 204 means no body (not required for PUT)
+
+        // return successful batch acceptance
         res.status(200).send(batch);
       })
       .catch((err: any) => {

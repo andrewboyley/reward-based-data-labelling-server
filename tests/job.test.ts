@@ -1,5 +1,7 @@
 import chai from "chai";
 import chaiHttp from "chai-http";
+import rimraf from "rimraf";
+const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 import dbHandler from "../src/db-handler";
 import server from "../src/server";
@@ -7,6 +9,8 @@ import server from "../src/server";
 const expect = chai.expect;
 
 chai.use(chaiHttp);
+
+function createJob() {}
 
 describe("GET /job", () => {
   // endpoint
@@ -33,7 +37,6 @@ describe("GET /job", () => {
     numLabellersRequired: 2,
     labels: ["A"],
     reward: 1,
-    labellers: [],
   };
 
   // connect to in-memory db
@@ -62,7 +65,6 @@ describe("GET /job", () => {
       numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
-      labellers: [],
     };
 
     // add a dummy job - no labellers (so have available jobs)
@@ -552,7 +554,9 @@ describe("PUT /job", () => {
 
   // dummy inserted ids
   let userToken = "";
+  let userId = "";
   let dummyJobId: string;
+  let mockJob: any;
 
   // dummy user insert
   const user: any = {
@@ -571,7 +575,6 @@ describe("PUT /job", () => {
     numLabellersRequired: 2,
     labels: ["A"],
     reward: 1,
-    labellers: [],
   };
 
   // connect to in-memory db
@@ -593,6 +596,15 @@ describe("PUT /job", () => {
     // get the user token
     userToken = res.body.token;
 
+    // translate to the user id
+    res = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken);
+
+    userId = res.body.id;
+
     dataInsert = {
       title: "Some title",
       description: "Some description",
@@ -600,22 +612,31 @@ describe("PUT /job", () => {
       numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
-      labellers: [],
     };
 
-    // add a dummy job - no labellers (so have available jobs)
+    // create this job to create the batches
     res = await chai
       .request(server)
-      .post(endpoint)
+      .post("/api/job")
       .set("Content-Type", "application/json; charset=utf-8")
       .set("Authorization", "Bearer " + userToken)
       .send(dataInsert);
 
     dummyJobId = res.body._id;
+    mockJob = res.body;
+
+    res = await chai
+      .request(server)
+      .post("/api/images")
+      .set("Content-Type", "multipart/form-data")
+      .set("Authorization", "Bearer " + userToken)
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png");
   });
 
   // disconnect from in-memory db
   after(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
     await dbHandler.close();
   });
 
@@ -721,16 +742,31 @@ describe("PUT /job", () => {
 
     chai
       .request(server)
-      .put(endpoint + "/labeller/" + dummyJobId) // craft labeller
-      .set("Content-Type", "application/json; charset=utf-8")
+      .post(endpoint)
+      .set("Content-Type", "multipart/form-data")
       .set("Authorization", "Bearer " + userToken)
-      .send({})
-      .end((err: any, res: ChaiHttp.Response) => {
-        // check response (and property values where applicable)
-        expect(err).to.be.null;
-        expect(res).to.have.status(204);
-        expect(res.body).deep.equal({});
-        done();
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png")
+      .end(function (err: any, res: ChaiHttp.Response) {
+        // check that the image has been uploaded
+        chai
+          .request(server)
+          .put(endpoint + "/labeller/" + dummyJobId) // craft labeller
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send({})
+          .end((err: any, res: ChaiHttp.Response) => {
+            // check response (and property values where applicable)
+            expect(err).to.be.null;
+            expect(res).to.have.status(200);
+            expect(res.body).to.have.property("labellers");
+            expect(res.body.labellers[0]).to.have.property("labeller", userId);
+
+            // remove the uploaded image
+            rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+
+            done();
+          });
       });
   });
 
@@ -822,7 +858,6 @@ describe("DELETE /job", () => {
     numLabellersRequired: 2,
     labels: ["A"],
     reward: 1,
-    labellers: [],
   };
 
   // connect to in-memory db
@@ -851,7 +886,6 @@ describe("DELETE /job", () => {
       numLabellersRequired: 2,
       labels: ["A"],
       reward: 1,
-      labellers: [],
     };
 
     // add a dummy job - no labellers (so have available jobs)
