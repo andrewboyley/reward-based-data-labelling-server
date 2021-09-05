@@ -7,7 +7,7 @@
     "serve": "node --version",
     "start": "tsc && nodemon",
     "build": "tsc",
-    "tests": "export NODE_ENV=test && nyc mocha --recursive --timeout 5000 --exit -r ts-node/register tests/**/*.test.ts",
+    "tests": "export NODE_ENV=test && nyc mocha --recursive --timeout 5000 --exit -r ts-node/register tests/**/**.test.ts",
     "lint": "npx eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "coverage": "nyc report --reporter=text-lcov | coveralls"
   },
@@ -29,6 +29,7 @@
   "homepage": "https://github.com/andrewboyley/reward-based-data-labelling-server#readme",
   "dependencies": {
     "bcrypt": "^5.0.1",
+    "chai-spies": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^9.0.2",
     "express": "^4.17.1",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@types/bcrypt": "^3.0.1",
     "@types/chai": "^4.2.16",
+    "@types/chai-spies": "^1.0.3",
     "@types/cors": "^2.8.10",
     "@types/express": "^4.17.11",
     "@types/mocha": "^8.2.2",
