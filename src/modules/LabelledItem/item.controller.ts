@@ -18,8 +18,8 @@ let ItemController = {
     var newLabelledItemObject;
 
     // update the data preview for the job
-    var aggImages = Array<any>();
-    var storedImages = Array<any>();
+    // var aggImages = Array<any>();
+    // var storedImages = Array<any>();
 
     //total number of batches given # of images
     const totalBatches = Math.max(
@@ -45,14 +45,14 @@ let ItemController = {
       // create a mongoose labelled item object
       let newLabelledItem = new LabelledItemModel(newLabelledItemObject);
 
-      if (aggImages.length < numItemsAggregated) {
-        aggImages.push(newLabelledItem);
-      }
+      // if (aggImages.length < numItemsAggregated) {
+      //   aggImages.push(newLabelledItem);
+      // }
 
       // save the labelled item in the database
       try {
         const itemResponse = await newLabelledItem.save();
-      } catch (err) {
+      } catch (err: any) {
         // something went wrong when saving the image
         res.status(500).send({
           message: err.message || "Some error occurred while saving the image.",
@@ -68,42 +68,56 @@ let ItemController = {
     var itemid: string = req.params.labelid;
     var itemLabels: string[] = req.body.labels;
 
-    LabelledItemModel.findById(itemid).then((labelledItem: any) => {
-      // check if this user exists - if yes, remove from labelledItem.labels array
-      for (let i = labelledItem.labels.length - 1; i >= 0; i--) {
-        if (
-          String(req.body.userId) == String(labelledItem.labels[i].labeller)
-        ) {
-          // remove the user's labels
-          labelledItem.labels.splice(i);
-        }
-      }
-
-      // add the new labels to the image
-      labelledItem.labels.push({
-        labeller: req.body.userId,
-        value: itemLabels,
-      });
-
-      labelledItem
-        .save()
-        .then((data: any) => {
-          // job created successfully - return the created object
-          res.status(201).send(itemLabels);
-        })
-        .catch((err: any) => {
-          if (err.message) {
-            res.status(422).send({
-              message: err.message,
-            });
-          } else {
-            // some other error occurred
-            res.status(500).send({
-              message: "Some error occurred while creating the job.",
-            });
+    LabelledItemModel.findById(itemid)
+      .then((labelledItem: any) => {
+        // check if this user exists - if yes, remove from labelledItem.labels array
+        for (let i = labelledItem.labels.length - 1; i >= 0; i--) {
+          if (
+            String(req.body.userId) == String(labelledItem.labels[i].labeller)
+          ) {
+            // remove the user's labels
+            labelledItem.labels.splice(i);
           }
+        }
+
+        // add the new labels to the image
+        labelledItem.labels.push({
+          labeller: req.body.userId,
+          value: itemLabels,
         });
-    });
+
+        labelledItem
+          .save()
+          .then((data: any) => {
+            // return the updated label list for this user
+            res.status(201).send(itemLabels);
+          })
+          .catch((err: any) => {
+            if (err.message) {
+              res.status(422).send({
+                message: err.message,
+              });
+            } else {
+              // some other error occurred
+              res.status(500).send({
+                message: "Some error occurred while creating the job.",
+              });
+            }
+          });
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Image not found with id " + req.params.labelid,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving image with id " + req.params.labelid,
+        });
+      });
   },
 
   findAll: async (req: Request, res: Response, next: NextFunction) => {

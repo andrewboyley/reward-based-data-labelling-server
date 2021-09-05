@@ -7,7 +7,6 @@ import BatchController from "../src/modules/batch/batch.controller";
 import Mongoose from "mongoose";
 import spies from "chai-spies"
 
-
 const expect = chai.expect;
 
 chai.use(chaiHttp);
