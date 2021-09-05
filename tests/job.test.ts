@@ -233,22 +233,37 @@ describe("GET /job", () => {
       .set("Content-Type", "application/json; charset=utf-8")
       .set("Authorization", "Bearer " + userToken)
       .end((err: any, res: ChaiHttp.Response) => {
-        // check response (and property values where applicable)
-        const body = res.body[0];
-        expect(err).to.be.null;
-        expect(res).to.have.status(200);
-        expect(res).to.have.header(
-          "Content-Type",
-          "application/json; charset=utf-8"
-        );
-        expect(res).to.be.json;
-        expect(body).to.have.property("_id");
-        expect(body).to.have.property("title");
-        expect(body).to.have.property("description");
-        expect(body).to.have.property("author");
-        expect(body).to.have.property("dateCreated");
-        expect(body).to.have.property("labels");
-        done();
+        // get my user id
+        chai
+          .request(server)
+          .get("/api/auth/id")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .end((err: any, resUser: ChaiHttp.Response) => {
+            // check response (and property values where applicable)
+
+            // get the id
+            const userId: string = resUser.body.id;
+
+            expect(err).to.be.null;
+            expect(res).to.have.status(200);
+            expect(res).to.have.header(
+              "Content-Type",
+              "application/json; charset=utf-8"
+            );
+            expect(res).to.be.json;
+
+            // check all the returned jobs
+            for (let body of res.body) {
+              expect(body).to.have.property("_id");
+              expect(body).to.have.property("title");
+              expect(body).to.have.property("description");
+              expect(body).to.have.property("author", userId);
+              expect(body).to.have.property("dateCreated");
+              expect(body).to.have.property("labels");
+            }
+            done();
+          });
       });
   });
 
