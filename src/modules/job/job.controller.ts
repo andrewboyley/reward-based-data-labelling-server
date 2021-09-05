@@ -400,3 +400,4 @@ let JobController = {
 };
 
 export default JobController;
+export { checkIfBatchIsAvailable };

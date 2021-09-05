@@ -1,9 +1,12 @@
 import chai from "chai";
 import chaiHttp from "chai-http";
+import Mongoose from "mongoose";
 import rimraf from "rimraf";
+import { mock } from "sinon";
 const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 import dbHandler from "../src/db-handler";
+import { checkIfBatchIsAvailable } from "../src/modules/job/job.controller";
 import server from "../src/server";
 
 const expect = chai.expect;
@@ -86,9 +89,12 @@ describe("GET /job", () => {
       .attach("image", "tests/test_image/png.png");
   });
 
+  afterEach(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+  });
+
   // disconnect from in-memory db
   after(async function () {
-    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
     await dbHandler.close();
   });
 
@@ -687,9 +693,12 @@ describe("PUT /job", () => {
       .attach("image", "tests/test_image/png.png");
   });
 
+  afterEach(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+  });
+
   // disconnect from in-memory db
   after(async function () {
-    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
     await dbHandler.close();
   });
 
@@ -1041,5 +1050,199 @@ describe("DELETE /job", () => {
 
         done();
       });
+  });
+});
+
+describe("Job utility functions", () => {
+  const endpoint = "/api/job/";
+
+  // dummy data
+  let userToken = "";
+  let userId: string;
+  let dummyJobId: string;
+  let mockJob: any;
+
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
+
+  // dummy job insert
+  let dataInsert: any = {
+    title: "Some title",
+    description: "Some description",
+    //date created does not need to be inserted because it is not changable by user
+    // author: "Replaced in a bit",
+    numLabellersRequired: 2,
+    labels: ["A"],
+    reward: 1,
+  };
+
+  before(async function () {
+    await dbHandler.connect();
+  });
+
+  beforeEach(async function () {
+    await dbHandler.clear();
+
+    // create a dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
+
+    // get the user token
+    userToken = res.body.token;
+
+    // get the user id
+    // convert the token to an id
+    res = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send();
+
+    userId = res.body.id;
+
+    dataInsert = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+    };
+
+    // create this job to create the batches
+    res = await chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(dataInsert);
+
+    dummyJobId = res.body._id;
+    mockJob = res.body;
+
+    // upload an image to the job we have just created
+    res = await chai
+      .request(server)
+      .post("/api/images")
+      .set("Content-Type", "multipart/form-data")
+      .set("Authorization", "Bearer " + userToken)
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png");
+  });
+
+  // disconnect from in-memory db
+  after(async function () {
+    await dbHandler.close();
+  });
+
+  afterEach(async function () {
+    // remove the image we uploaded
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+  });
+
+  it("checks if batch is available - we previously accepted", (done: any) => {
+    const extraUser: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "extra@example.com",
+      password: "someHash",
+    };
+
+    let extraUserToken: string;
+    let extraUserId: string;
+
+    // create another user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(extraUser)
+      .then((res: ChaiHttp.Response) => {
+        // get this user's token
+        extraUserToken = res.body.token;
+
+        // get this user's id
+        return chai
+          .request(server)
+          .get("/api/auth/id")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + extraUserToken);
+      })
+      .then((res: ChaiHttp.Response) => {
+        // extract the user id
+        extraUserId = res.body.id;
+
+        // accept the job as this user
+        return chai
+          .request(server)
+          .put(endpoint + "/labeller/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + extraUserToken);
+      })
+      .then((res: ChaiHttp.Response) => {
+        // call the function to test
+        return checkIfBatchIsAvailable(
+          mockJob,
+          Mongoose.Types.ObjectId(extraUserId)
+        );
+      })
+      .then((result: boolean) => {
+        expect(result).to.equal(false);
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if batch is available - we have NOT previously accepted", (done: any) => {
+    const extraUser: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "extra@example.com",
+      password: "someHash",
+    };
+
+    let extraUserToken: string;
+    let extraUserId: string;
+
+    // create another user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(extraUser)
+      .then((res: ChaiHttp.Response) => {
+        // get this user's token
+        extraUserToken = res.body.token;
+
+        // get this user's id
+        return chai
+          .request(server)
+          .get("/api/auth/id")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + extraUserToken);
+      })
+      .then((res: ChaiHttp.Response) => {
+        // extract the user id
+        extraUserId = res.body.id;
+
+        // call the function to test
+        return checkIfBatchIsAvailable(
+          mockJob,
+          Mongoose.Types.ObjectId(extraUserId)
+        );
+      })
+      .then((result: boolean) => {
+        expect(result).to.equal(true);
+        done();
+      })
+      .catch(done);
   });
 });
