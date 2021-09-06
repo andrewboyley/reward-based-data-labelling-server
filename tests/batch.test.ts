@@ -993,3 +993,135 @@ describe("Batch expiry", () => {
       .catch(done);
   });
 });
+
+describe("Complete a batch", () => {
+
+	const endpoint = "/api/batch/";
+
+	// dummy data
+	let userToken = "";
+
+	let dummyJobId: any;
+	let mockJob: any;
+
+	const user: any = {
+		firstName: "Some",
+		surname: "One",
+		email: "someone@example.com",
+		password: "someHash",
+	};
+
+	// dummy job insert
+	let dataInsert: any = {
+		title: "Some title",
+		description: "Some description",
+		//date created does not need to be inserted because it is not changable by user
+		// author: "Replaced in a bit",
+		numLabellersRequired: 2,
+		labels: ["A"],
+		reward: 1,
+		labellers: [],
+	};
+
+	before(async function () {
+		await dbHandler.connect();
+	})
+
+	beforeEach(async function () {
+		await dbHandler.clear();
+
+		// create a dummy user
+		let res: ChaiHttp.Response = await chai
+			.request(server)
+			.post("/api/auth/register")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.send(user);
+
+		// get the user token
+		userToken = res.body.token;
+
+		dataInsert = {
+			title: "Some title",
+			description: "Some description",
+			//date created does not need to be inserted because it is not changable by user
+			numLabellersRequired: 2,
+			labels: ["A"],
+			reward: 1,
+			labellers: [],
+		};
+
+		// create this job to create the batches 
+		res = await chai
+			.request(server)
+			.post("/api/job")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.send(dataInsert);
+
+		dummyJobId = res.body._id;
+		mockJob = res.body;
+
+		await chai
+			.request(server)
+			.post("/api/images")
+			.set("Content-Type", "multipart/form-data")
+			.set("Authorization", "Bearer " + userToken)
+			.field("jobID", dummyJobId)
+			.attach("image", "tests/test_image/png.png");
+
+	});
+	// disconnect from in-memory db
+	after(async function () {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+		await dbHandler.close();
+	});
+
+	afterEach(async () => {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+	});
+
+
+	it("Completes batch", (done: any) => {
+		let batchID: any;
+
+		chai
+			.request(server)
+			.get(endpoint + "/next/" + dummyJobId)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res1 => {
+				batchID = res1.body._id;
+				return chai
+					.request(server)
+					.put(endpoint + "/labeller/" + batchID)
+					.set("Content-Type", "application/json; charset=utf-8")
+					.set("Authorization", "Bearer " + userToken);
+			}).then(res2 => {
+
+				return chai
+					.request(server)
+					.put(endpoint + "/complete/" + batchID)
+					.set("Content-Type", "application/json; charset=utf-8")
+					.set("Authorization", "Bearer " + userToken)
+
+			}).then(res3 => {
+				expect(res3.status).to.equal(204);
+				done();
+			}).catch(done);
+	})
+
+	it("Returns 404 when batchID not found", (done: any) => {
+		chai
+			.request(server)
+			.put(endpoint + "/complete/" + "4edd40c86762e0fb12000003")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res => {
+
+				expect(res.status).to.equal(404);
+				done();
+			}).catch(done);
+	})
+
+})
+

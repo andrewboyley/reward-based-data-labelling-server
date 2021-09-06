@@ -303,10 +303,9 @@ let BatchController = {
 
   finishJob: async (req: Request, res: Response, next: NextFunction) => {
     // update this particular batch for this user
-
-    if (!req.params.batch) {
-      return res.status(422).send({ message: "Batch ID not present" });
-    }
+    // if (!req.params.batch) {
+    // 	return res.status(422).send({ message: "Batch ID not present" });
+    // }
 
     // find the batch to update
     BatchModel.findById(req.params.batch)
