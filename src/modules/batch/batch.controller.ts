@@ -4,7 +4,6 @@ import JobModel from "../job/job.model";
 import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
 import multer from "multer"; // DO NOT REMOVE - typescript things
-import JobController from "../job/job.controller";
 
 async function removeUserLabels(
   batch: any,
@@ -134,6 +133,7 @@ let BatchController = {
     // find all batches in this job that:
     // 1) we have not labelled before
     // 2) can still be labelled
+    // todo - check if this does work, or if $elemMatch is needed
     const batches: any = await BatchModel.find({
       job: jobId, // get batches in the desired job
       "labellers.labeller": { $ne: userId }, // satisfies (1)
@@ -321,7 +321,7 @@ let BatchController = {
         // update the labels array
         for (let i = 0; i < batch.labellers.length; i++) {
           const labeller = batch.labellers[i];
-          if (String(labeller.labeller) == String(req.body.userId)) {
+          if (String(labeller.labeller) === String(req.body.userId)) {
             // this is the current user
             batch.labellers[i].completed = true;
 
@@ -372,8 +372,9 @@ function manageExpiry() {
   const currentTime = new Date().toISOString();
 
   BatchModel.find({
-    "labellers.completed": false, // batch not completed
-    "labellers.expiry": { $lt: currentTime }, // expiry time is less than current time
+    labellers: {
+      $elemMatch: { completed: false, expiry: { $lt: currentTime } }, // batch not completed AND expiry time is less than current time
+    },
   })
     .then(async (batches: any) => {
       // these batches have expired

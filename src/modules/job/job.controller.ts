@@ -11,8 +11,9 @@ async function checkIfBatchIsAvailable(
   // find any batches that we accepted previously AND which are NOT completed
   let batches: any = await BatchModel.find({
     job: job._id, // get batches in the desired job
-    "labellers.labeller": userObjectId, // get batches that I have labelled
-    "labellers.completed": false, // we have not completed this batch
+    labellers: {
+      $elemMatch: { labeller: userObjectId, completed: false },
+    },
   });
 
   // if batches is not empty, means we have in-progress batches still - means job is not availble
@@ -196,8 +197,9 @@ let JobController = {
 
     // find all batches where user is a labeller AND is not completed
     BatchModel.find({
-      "labellers.labeller": userObjectId, // get batches that I have labelled
-      "labellers.completed": false, // we have not completed this batch
+      labellers: {
+        $elemMatch: { labeller: userObjectId, completed: false },
+      },
     })
       .then(async (batchJobs: any) => {
         // all these jobs are currently in-progress
@@ -337,36 +339,6 @@ let JobController = {
           message: "Error updating job with id " + req.params.id,
         });
       });
-
-    // add the labeller to the job
-    // JobModel.findByIdAndUpdate(
-    //   req.params.id,
-    //   { $push: { labellers: req.body.userId } },
-    //   { new: true }
-    // )
-    //   .then((job: any) => {
-    //     if (!job) {
-    //       // invalid job id was provided
-    //       return res.status(404).send({
-    //         message: "Job not found with id " + req.params.id,
-    //       });
-    //     }
-    //     // return successful update - 204 means no body (not required for PUT)
-    //     res.status(204).send();
-    //   })
-    //   .catch((err: any) => {
-    //     if (err.kind === "ObjectId") {
-    //       // something was wrong with the job id
-    //       return res.status(404).send({
-    //         message: "Job not found with id " + req.params.id,
-    //       });
-    //     }
-
-    //     // something else went wrong
-    //     return res.status(500).send({
-    //       message: "Error updating job with id " + req.params.id,
-    //     });
-    //   });
   },
 
   delete: async (req: Request, res: Response, next: NextFunction) => {
