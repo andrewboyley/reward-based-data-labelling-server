@@ -126,46 +126,6 @@ describe("Batch functionalities", () => {
 			});
 	});
 
-	it("Retrieves one batch and the images with the correct id", (done: any) => {
-		chai
-			.request(server)
-			.get(endpoint)
-			.set("Content-Type", "application/json; charset=utf-8")
-			.set("Authorization", "Bearer " + userToken).then(res1 => {
-				const mockBatch = res1.body[0];
-				return chai
-					.request(server)
-					.get(endpoint + "/" + mockBatch._id)
-					.set("Content-Type", "application/json; charset=utf-8")
-					.set("Authorization", "Bearer " + userToken);
-
-			}).then(res2 => {
-				expect(res2).to.have.status(200);
-				expect(res2).to.have.header(
-					"Content-Type",
-					"application/json; charset=utf-8"
-				);
-				const body = res2.body;
-				expect(body).to.have.property("images");
-				expect(body.images.length).to.not.equal(0);
-				done();
-			}).catch(done);
-	});
-
-
-	it("Returns error when invalid ID provided", (done: any) => {
-
-		chai
-			.request(server)
-			.get(endpoint + "/" + "badID")
-			.set("Content-Type", "application/json; charset=utf-8")
-			.set("Authorization", "Bearer " + userToken)
-			.then(res => {
-				expect(res.status).to.equal(500);
-				done();
-			}).catch(done)
-	});
-
 	it("Determines the available batches", (done: any) => {
 		chai
 			.request(server)
@@ -203,6 +163,149 @@ describe("Batch functionalities", () => {
 				done();
 			}).catch(done);
 
+	})
+
+});
+
+describe("Find complete batch and images", () => {
+
+	const endpoint = "/api/batch/";
+
+	// dummy data
+	let userToken = "";
+
+	let dummyJobId: any;
+	let mockJob: any;
+
+	const user: any = {
+		firstName: "Some",
+		surname: "One",
+		email: "someone@example.com",
+		password: "someHash",
+	};
+
+	// dummy job insert
+	let dataInsert: any = {
+		title: "Some title",
+		description: "Some description",
+		//date created does not need to be inserted because it is not changable by user
+		// author: "Replaced in a bit",
+		numLabellersRequired: 2,
+		labels: ["A"],
+		reward: 1,
+		labellers: [],
+	};
+
+	before(async function () {
+		await dbHandler.connect();
+	})
+
+	beforeEach(async function () {
+		await dbHandler.clear();
+
+		// create a dummy user
+		let res: ChaiHttp.Response = await chai
+			.request(server)
+			.post("/api/auth/register")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.send(user);
+
+		// get the user token
+		userToken = res.body.token;
+
+		dataInsert = {
+			title: "Some title",
+			description: "Some description",
+			//date created does not need to be inserted because it is not changable by user
+			numLabellersRequired: 2,
+			labels: ["A"],
+			reward: 1,
+			labellers: [],
+		};
+
+		// create this job to create the batches 
+		res = await chai
+			.request(server)
+			.post("/api/job")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.send(dataInsert);
+
+		dummyJobId = res.body._id;
+		mockJob = res.body;
+
+		await chai
+			.request(server)
+			.post("/api/images")
+			.set("Content-Type", "multipart/form-data")
+			.set("Authorization", "Bearer " + userToken)
+			.field("jobID", dummyJobId)
+			.attach("image", "tests/test_image/png.png");
+
+	});
+	// disconnect from in-memory db
+	after(async function () {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+		await dbHandler.close();
+	});
+
+	afterEach(async () => {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+	});
+
+
+	it("Retrieves one batch and the images with the correct id", (done: any) => {
+		chai
+			.request(server)
+			.get(endpoint)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken).then(res1 => {
+				const mockBatch = res1.body[0];
+				return chai
+					.request(server)
+					.get(endpoint + "/" + mockBatch._id)
+					.set("Content-Type", "application/json; charset=utf-8")
+					.set("Authorization", "Bearer " + userToken);
+
+			}).then(res2 => {
+				expect(res2).to.have.status(200);
+				expect(res2).to.have.header(
+					"Content-Type",
+					"application/json; charset=utf-8"
+				);
+				const body = res2.body;
+				expect(body).to.have.property("images");
+				expect(body.images.length).to.not.equal(0);
+				done();
+			}).catch(done);
+	});
+
+
+	it("Returns 500 when malformed ID provided", (done: any) => {
+
+		chai
+			.request(server)
+			.get(endpoint + "/" + "badID")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res => {
+				expect(res.status).to.equal(500);
+				done();
+			}).catch(done)
+	});
+
+	it("Returns 404 is no batch with ID was found", (done: any) => {
+		chai
+			.request(server)
+			.get(endpoint + "/" + "4edd40c86762e0fb12000003")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+
+			.then(res2 => {
+				expect(res2).to.have.status(404);
+
+				done();
+			}).catch(done);
 	})
 
 });
@@ -307,7 +410,8 @@ describe("Adding labeller", () => {
 			.request(server)
 			.get(endpoint)
 			.set("Content-Type", "application/json; charset=utf-8")
-			.set("Authorization", "Bearer " + userToken).then(res1 => {
+			.set("Authorization", "Bearer " + userToken)
+			.then(res1 => {
 				const mockBatch = res1.body[0];
 				return chai
 					.request(server)
@@ -517,90 +621,153 @@ describe("Removing labeller", () => {
 			}).catch(done);
 	});
 
-	// it("Returns 500 when something goes wrong", (done: any) => {
-	// 	let mockBatch: any;
+});
 
-	// 	chai
-	// 		.request(server)
-	// 		.get(endpoint)
-	// 		.set("Content-Type", "application/json; charset=utf-8")
-	// 		.set("Authorization", "Bearer " + userToken).then(res1 => {
-	// 			mockBatch = res1.body[0];
-	// 			return chai
-	// 				.request(server)
-	// 				.delete(endpoint + "/labeller/" + mockBatch._id)
-	// 				.set("Content-Type", "application/json; charset=utf-8")
-	// 				.set("Authorization", "Bearer " + userToken)
-	// 		}).then(res2 => {
-	// 			expect(res2.status).to.equal(500);
-	// 			done();
-	// 		}).catch(done);
-	// });
+describe("Find next batch", () => {
 
-	// it("Returns 404 when no batch is found", (done: any) => {
-	// 	// create mock request response and next objects
-	// 	const mockReq: any = {}
+	const endpoint = "/api/batch/";
 
-	// 	const mockRes: any = {
-	// 		status: (statusCode: number) => { return mockRes },
-	// 		send: () => { }
-	// 	}
-	// 	const next = () => { };
+	// dummy data
+	let userToken = "";
 
-	// 	// spy on the functions inside the dummy response object
-	// 	const spy = chai.spy.on(mockRes, "status");
+	let dummyJobId: any;
+	let mockJob: any;
+
+	const user: any = {
+		firstName: "Some",
+		surname: "One",
+		email: "someone@example.com",
+		password: "someHash",
+	};
+
+	// dummy job insert
+	let dataInsert: any = {
+		title: "Some title",
+		description: "Some description",
+		//date created does not need to be inserted because it is not changable by user
+		// author: "Replaced in a bit",
+		numLabellersRequired: 2,
+		labels: ["A"],
+		reward: 1,
+		labellers: [],
+	};
+
+	before(async function () {
+		await dbHandler.connect();
+	})
+
+	beforeEach(async function () {
+		await dbHandler.clear();
+
+		// create a dummy user
+		let res: ChaiHttp.Response = await chai
+			.request(server)
+			.post("/api/auth/register")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.send(user);
+
+		// get the user token
+		userToken = res.body.token;
+
+		dataInsert = {
+			title: "Some title",
+			description: "Some description",
+			//date created does not need to be inserted because it is not changable by user
+			numLabellersRequired: 2,
+			labels: ["A"],
+			reward: 1,
+			labellers: [],
+		};
+
+		// create this job to create the batches 
+		res = await chai
+			.request(server)
+			.post("/api/job")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.send(dataInsert);
+
+		dummyJobId = res.body._id;
+		mockJob = res.body;
+
+		await chai
+			.request(server)
+			.post("/api/images")
+			.set("Content-Type", "multipart/form-data")
+			.set("Authorization", "Bearer " + userToken)
+			.field("jobID", dummyJobId)
+			.attach("image", "tests/test_image/png.png");
+
+	});
+	// disconnect from in-memory db
+	after(async function () {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+		await dbHandler.close();
+	});
+
+	afterEach(async () => {
+		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+	});
 
 
-	// 	BatchController.addLabeller(mockReq, mockRes, next).then(res => {
-	// 		console.log(res);
-	// 		expect(spy).to.have.been.called.with(400);
-	// 		done();
-	// 	}).catch(done);
-	// })
+	it("Retrieves batch when available", (done: any) => {
+		chai
+			.request(server)
+			.get(endpoint + "/next/" + dummyJobId)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res1 => {
 
-	// it("Returns 404 when wrong objectID used", (done: any) => {
-	// 	function status(statusCode: any) { return mockRes; }
-	// 	const mockReq: any = {
-	// 		body: {
-	// 			userId: mockUserID
-	// 		},
-	// 		params: {
-	// 			batch: Mongoose.Types.ObjectId("4edd40c86762e0fb12000003")
-	// 		}
-	// 	}
-	// 	const mockRes: any = {
-	// 		status: status,
-	// 		send: () => { }
-	// 	}
-	// 	const next = () => { };
-	// 	const spy = chai.spy.on(mockRes, "status");
-	// 	BatchController.addLabeller(mockReq, mockRes, next).then(res => {
-	// 		expect(spy).to.have.been.called.with(404);
-	// 		done();
-	// 	}).catch(done);
-	// })
+				expect(res1.status).to.equal(200);
+				const body = res1.body;
+				expect(body.job).to.equal(dummyJobId);
 
+				done()
+			}).catch(done);
+	});
 
-	// it("Returns 404 when bad objectID used", (done: any) => {
-	// 	function status(statusCode: any) { return mockRes; }
-	// 	const mockReq: any = {
-	// 		body: {
-	// 			userId: mockUserID
-	// 		},
-	// 		params: {
-	// 			batch: "BadID"
-	// 		}
-	// 	}
-	// 	const mockRes: any = {
-	// 		status: status,
-	// 		send: () => { }
-	// 	}
-	// 	const next = () => { };
-	// 	const spy = chai.spy.on(mockRes, "status");
-	// 	BatchController.addLabeller(mockReq, mockRes, next).then(res => {
-	// 		expect(spy).to.have.been.called.with(404);
-	// 		done();
-	// 	}).catch(done);
-	// })
+	it("Retrieves no batch when not available", (done: any) => {
+		chai
+			.request(server)
+			.get(endpoint)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res1 => {
+				const mockBatch = res1.body[0];
+				return chai
+					.request(server)
+					.put(endpoint + "/labeller/" + mockBatch._id)
+					.set("Content-Type", "application/json; charset=utf-8")
+					.set("Authorization", "Bearer " + userToken)
 
+			}).then(res2 => {
+				return chai
+					.request(server)
+					.get(endpoint + "/next/" + dummyJobId)
+					.set("Content-Type", "application/json; charset=utf-8")
+					.set("Authorization", "Bearer " + userToken)
+
+			}).then(res3 => {
+
+				expect(res3.status).to.equal(200);
+				const body = res3.body;
+				expect(body).to.equal("No Batch");
+
+				done()
+			}).catch(done);
+
+	})
+
+	it("Returns 400 if finding next batch went wrong", (done: any) => {
+		chai
+			.request(server)
+			.get(endpoint + "/next/" + "4edd40c86762e0fb12000003")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + userToken)
+			.then(res1 => {
+				expect(res1.status).to.equal(404);
+				done();
+			})
+			.catch(done);
+	});
 });
