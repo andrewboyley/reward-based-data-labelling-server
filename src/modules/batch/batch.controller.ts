@@ -366,12 +366,12 @@ let BatchController = {
   },
 };
 
-function manageExpiry() {
+async function manageExpiry() {
   console.log("Checking if any batches have expired...");
   // get all batches where the current time is greater than or equal to the expiry time, and flag is false
   const currentTime = new Date().toISOString();
 
-  BatchModel.find({
+  await BatchModel.find({
     labellers: {
       $elemMatch: { completed: false, expiry: { $lt: currentTime } }, // batch not completed AND expiry time is less than current time
     },
@@ -425,3 +425,4 @@ const intervalMinutes = 15;
 setInterval(manageExpiry, intervalMinutes * 60 * 1000); // convert to milliseconds
 
 export default BatchController;
+export { manageExpiry };
