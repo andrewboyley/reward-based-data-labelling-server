@@ -335,7 +335,7 @@ let BatchController = {
           .save()
           .then((updatedBatch: any) => {
             // update performed successfully
-            return res.status(404).send();
+            return res.status(204).send();
           })
           .catch((err: any) => {
             if (err.message) {
