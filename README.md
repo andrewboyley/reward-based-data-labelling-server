@@ -1,6 +1,6 @@
 [![API CI](https://github.com/andrewboyley/reward-based-data-labelling-server/actions/workflows/main.yml/badge.svg)](https://github.com/andrewboyley/reward-based-data-labelling-server/actions/workflows/main.yml)
 
-[![Coverage Status](https://coveralls.io/repos/github/andrewboyley/reward-based-data-labelling-server/badge.svg?branch=develop&t=V4ALSy)](https://coveralls.io/github/andrewboyley/reward-based-data-labelling-server?branch=develop)
+[![Coverage Status](https://coveralls.io/repos/github/andrewboyley/reward-based-data-labelling-server/badge.svg?branch=main&t=V4ALSy)](https://coveralls.io/github/andrewboyley/reward-based-data-labelling-server?branch=main)
 
 # jinx
 
