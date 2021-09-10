@@ -233,3 +233,4 @@ let ItemController = {
 };
 
 export default ItemController;
+export { determineSortedImageLabels };
