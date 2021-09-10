@@ -7,6 +7,7 @@ const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 import dbHandler from "../src/db-handler";
 import { checkIfBatchIsAvailable } from "../src/modules/job/job.controller";
+import { determineSortedImageLabels } from "../src/modules/LabelledItem/item.controller";
 import server from "../src/server";
 
 const expect = chai.expect;
@@ -20,6 +21,8 @@ describe("GET /job", () => {
   // dummy inserted ids
   let userToken = "";
   let dummyJobId: string;
+  let userId: string;
+  let imageId: string;
   let mockJob: any;
 
   // dummy user insert
@@ -60,6 +63,15 @@ describe("GET /job", () => {
     // get the user token
     userToken = res.body.token;
 
+    // get the user id
+    res = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken);
+
+    userId = res.body.id;
+
     dataInsert = {
       title: "Some title",
       description: "Some description",
@@ -87,6 +99,16 @@ describe("GET /job", () => {
       .set("Authorization", "Bearer " + userToken)
       .field("jobID", dummyJobId)
       .attach("image", "tests/test_image/png.png");
+
+    // get the image id we have just uploaded
+    res = await chai
+      .request(server)
+      .get("/api/images/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .query({ jobID: dummyJobId });
+
+    imageId = res.body[0]._id;
   });
 
   afterEach(async function () {
@@ -426,6 +448,158 @@ describe("GET /job", () => {
       expect(batchBody).to.have.property("labellers");
       expect(batchBody.labellers).to.deep.equal([]);
     }
+  });
+
+  it("Retrieves the 'assigned' labels for a job - successful", (done: any) => {
+    const labels = ["one", "two"];
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/labelled/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct job structure is returned
+
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("_id");
+        expect(res.body).to.have.property("title");
+        expect(res.body).to.have.property("description");
+        expect(res.body).to.have.property("author", userId);
+        expect(res.body).to.have.property("dateCreated");
+        expect(res.body).to.have.property("labels");
+        expect(res.body).to.have.property("rewards");
+        expect(res.body).to.have.property("numLabellersRequired");
+        expect(res.body).to.have.property("total_batches");
+        expect(res.body).to.have.property("images");
+
+        // ensure the images are correctly returned
+        expect(res.body.images.length).to.equal(1);
+        expect(res.body.images[0]).to.have.property("batchNumber");
+        expect(res.body.images[0]).to.have.property("_id");
+        expect(res.body.images[0]).to.have.property("value");
+        expect(res.body.images[0]).to.have.property("job");
+        expect(res.body.images[0]).to.have.property("assignedLabels");
+        expect(res.body.images[0].assignedLabels).deep.equal(labels);
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Retrieves the 'assigned' labels for a job - job id invalid", (done: any) => {
+    const wrongId = dummyJobId + "f";
+    // get the job, with the images and labels
+    chai
+      .request(server)
+      .get(endpoint + "/labelled/" + wrongId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send()
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct job structure is returned
+
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Job not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Retrieves the 'assigned' labels for a job - job id incorrect", (done: any) => {
+    const wrongId = dummyJobId.slice(1) + "f";
+    // get the job, with the images and labels
+    chai
+      .request(server)
+      .get(endpoint + "/labelled/" + wrongId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send()
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct job structure is returned
+
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Job not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Retrieves the 'assigned' labels for a job - not author", (done: any) => {
+    // get the job, with the images and labels
+
+    // create another user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // try and get the job as this user
+        return chai
+          .request(server)
+          .get(endpoint + "/labelled/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "You are not authorised to view this job's labels"
+        );
+
+        done();
+      })
+      .catch(done);
   });
 });
 
