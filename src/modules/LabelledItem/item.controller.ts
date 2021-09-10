@@ -6,8 +6,46 @@ import JobModel from "../job/job.model";
 import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
 
-const numItemsAggregated = 4;
 const desiredBatchSize = 10;
+
+function determineSortedImageLabels(image: any) {
+  // need to order the labels by frequency
+  let labelFrequencies: any = {};
+
+  for (let label of image.labels) {
+    // looping through all the labels
+    // increment a counter for the relevant value
+    const values = label.value;
+
+    for (let value of values) {
+      if (value in labelFrequencies) {
+        // we already have this label
+        labelFrequencies[value]++;
+      } else {
+        // add this label to the dict
+        labelFrequencies[value] = 1;
+      }
+    }
+  }
+
+  // now we have a mapping of labels to frequency
+  // now SORT
+  // Create an array
+  const frequencyArray = Object.keys(labelFrequencies).map(function (key) {
+    return [key, labelFrequencies[key]];
+  });
+
+  // Sort the array based on the second element
+  frequencyArray.sort(function (first, second) {
+    return second[1] - first[1];
+  });
+
+  // extract the keys from the array
+  return frequencyArray.map((element: any) => {
+    return element[0];
+  });
+}
+
 let ItemController = {
   // add all the pictures, and create the appropriate batches
   addItem: async (req: Request, res: Response, next: NextFunction) => {
@@ -163,6 +201,32 @@ let ItemController = {
       job: jobId,
       batchNumber: batchNumber,
     });
+
+    return images;
+  },
+
+  determineImageLabelsInJob: async (jobId: Mongoose.Types.ObjectId) => {
+    // 1) find all the images in this job
+    // 2) add an "assigned labels" property to each images
+
+    // get all the images
+    let images: any = await LabelledItemModel.find({
+      job: jobId,
+    });
+
+    // something went wrong and couldn't get images
+    if (!images) {
+      return null;
+    }
+
+    // determine the image labels
+    for (let i = 0; i < images.length; i++) {
+      let image = images[i];
+      image = image.toObject();
+      image.assignedLabels = determineSortedImageLabels(image);
+      delete image.labels;
+      images[i] = image;
+    }
 
     return images;
   },

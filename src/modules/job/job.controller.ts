@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
+import ItemController from "../LabelledItem/item.controller";
 import JobModel from "./job.model";
 
 async function checkIfBatchIsAvailable(
@@ -228,6 +229,68 @@ let JobController = {
       })
       .catch((err: any) => {
         return res.status(400).json({ error: "Something went wrong" });
+      });
+  },
+
+  // return a single job, with all the images, with their labels
+  findJobLabels: async (req: Request, res: Response, next: NextFunction) => {
+    // 1) find the specified job
+    // 2) retrieve all the images in this job
+    // 3) determine the actual assigned labels to the images
+
+    // make sure we have an id
+    if (!req.params.id) {
+      return res.status(422).send({
+        message: "Job ID not provided",
+      });
+    }
+
+    // get job
+    JobModel.findById(req.params.id)
+      .then(async (job: any) => {
+        // double check we have a job
+        if (!job) {
+          return res.status(404).json({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
+
+        // we have the job - check that we are the author of this job
+        if (String(job.author) !== req.body.userId) {
+          // we are not the author - can't view the job labels
+          return res.status(401).json({
+            message: "You are not authorised to view this job's labels",
+          });
+        }
+
+        // we now have a valid request and data
+        // now we need to get the images with the correct labels
+        job = job.toObject();
+        let images = await ItemController.determineImageLabelsInJob(job._id);
+
+        if (images) {
+          job.images = images;
+          res.status(200).json(job);
+        } else {
+          // images is null - error occurred
+          res.status(500).json({
+            message:
+              "An error occurred while processing the labels for this job",
+          });
+        }
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving job with id " + req.params.id,
+        });
       });
   },
 
