@@ -29,7 +29,10 @@ function comparePassword(
   });
 }
 
+// make the hashing functionality available
 export default { hashPassword, comparePassword };
+
+// define interfaces for the callbacks
 export interface hashPasswordNext {
   (hash: string): void;
 }

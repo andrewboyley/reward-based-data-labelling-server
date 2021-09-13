@@ -1,23 +1,21 @@
-// process.env.NODE_ENV = "test";
-
-// import fs - test image uploads
-import fs from "fs";
-import path from "path";
-
 import chai from "chai";
 import chaiHttp from "chai-http";
-import request from "superagent";
 
 import dbHandler from "../src/db-handler";
 import server from "../src/server";
+const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 const expect = chai.expect;
 
+// setup testing to mock network requests
 chai.use(chaiHttp);
 
-describe("GET /user - login", () => {
+describe("POST /auth/login", () => {
   // endpoint
-  const endpoint = "/api/user/login";
+  const endpoint = "/api/auth/login";
+
+  // keep track of the user token
+  let loginToken: string;
 
   // dummy user insert
   const dataInsert: any = {
@@ -37,11 +35,14 @@ describe("GET /user - login", () => {
     await dbHandler.clear();
 
     // add a dummy user
-    await chai
+    const res = await chai
       .request(server)
-      .post("/api/user/")
+      .post("/api/auth/register")
       .set("Content-Type", "application/json; charset=utf-8")
       .send(dataInsert);
+
+    // get the user's token
+    loginToken = res.body.token;
   });
 
   // disconnect from in-memory db
@@ -68,10 +69,10 @@ describe("GET /user - login", () => {
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query(dataLogin)
-      .end((err: any, res: request.Response) => {
+      .send(dataLogin)
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(200);
@@ -80,12 +81,13 @@ describe("GET /user - login", () => {
           "application/json; charset=utf-8"
         );
         expect(res).to.be.json;
-        expect(res.body).to.have.property("_id");
+        expect(res.body).to.not.have.property("_id"); // we are returning a token instead of an id
         expect(res.body).to.have.property("firstName", dataInsert["firstName"]);
         expect(res.body).to.have.property("surname", dataInsert["surname"]);
         expect(res.body).to.have.property("email", dataInsert["email"]);
         expect(res.body).to.not.have.property("password"); // don't return the hash
         expect(res.body).to.have.property("profilePicturePath", "generic.jpeg");
+        expect(res.body).to.have.property("token");
         done();
       });
   });
@@ -102,11 +104,12 @@ describe("GET /user - login", () => {
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query(dataLogin)
-      .end((err: any, res: request.Response) => {
+      .send(dataLogin)
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
+        // expect error to occur
         expect(err).to.be.null;
         expect(res).to.have.status(401);
         expect(res).to.have.header(
@@ -131,11 +134,12 @@ describe("GET /user - login", () => {
 
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query(dataLogin)
-      .end((err: any, res: request.Response) => {
+      .send(dataLogin)
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
+        // expect error to occur
         expect(err).to.be.null;
         expect(res).to.have.status(401);
         expect(res).to.have.header(
@@ -148,17 +152,19 @@ describe("GET /user - login", () => {
       });
   });
 
-  // missing field(s) - return 422
-  it("Required field(s) missing", (done: any) => {
+  // no email - return 422
+  it("Email not provided", (done: any) => {
     // returns error code and message
 
+    // make request without email
     chai
       .request(server)
-      .get(endpoint)
+      .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
-      .query({})
-      .end((err: any, res: request.Response) => {
+      .send({})
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
+        // expect error to occur
         expect(err).to.be.null;
         expect(res).to.have.status(422);
         expect(res).to.have.header(
@@ -166,18 +172,40 @@ describe("GET /user - login", () => {
           "application/json; charset=utf-8"
         );
         expect(res).to.be.json;
-        expect(res.body).to.have.property(
-          "error",
-          "Missing the following field(s): email, password"
+        expect(res.body).to.have.property("error", "Email not provided");
+        done();
+      });
+  });
+
+  // no password - return 422
+  it("Password not provided", (done: any) => {
+    // returns error code and message
+
+    // make request with email, but without password
+    chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({ email: dataInsert["email"] })
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response (and property values where applicable)
+        // expect error to occur
+        expect(err).to.be.null;
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
         );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("error", "Password not provided");
         done();
       });
   });
 });
 
-describe("POST /user", () => {
+describe("POST /auth/register", () => {
   // endpoint
-  const endpoint = "/api/user";
+  const endpoint = "/api/auth/register";
 
   // connect to in-memory db
   before(async function () {
@@ -203,7 +231,7 @@ describe("POST /user", () => {
     }
   */
 
-  // todo - write this test
+  // todo - write this test when add profile pic functionality
   // insert successful
   // it("All user fields present, including profile picture", (done: any) => {
   //   // returns user object
@@ -259,12 +287,13 @@ describe("POST /user", () => {
       email: "someone@example.com",
       password: "someHash",
     };
+
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err: any, res: request.Response) => {
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response (and property values where applicable)
         expect(err).to.be.null;
         expect(res).to.have.status(201);
@@ -273,12 +302,77 @@ describe("POST /user", () => {
           "application/json; charset=utf-8"
         );
         expect(res).to.be.json;
-        expect(res.body).to.have.property("_id");
+        expect(res.body).to.not.have.property("_id"); // we use the user token instead of id
         expect(res.body).to.have.property("firstName", data["firstName"]);
         expect(res.body).to.have.property("surname", data["surname"]);
         expect(res.body).to.have.property("email", data["email"]);
         expect(res.body).to.not.have.property("password"); // don't return the hash
         expect(res.body).to.have.property("profilePicturePath", "generic.jpeg");
+        expect(res.body).to.have.property("token");
+        done();
+      });
+  });
+
+  // no email - 422
+  it("Email not provided", (done: any) => {
+    // returns error code and message
+
+    // contruct data with missing email
+    const data: any = {
+      firstName: "Some",
+      surname: "One",
+      // email: "someone1@example.com",
+      password: "someHash",
+    };
+
+    chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(data)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        // expect an error to occur
+        expect(err).to.be.null;
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("error", "Email not provided");
+        done();
+      });
+  });
+
+  // no password - 422
+  it("Password not provided", (done: any) => {
+    // returns error code and message
+
+    // construct data with missing password
+    const data: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "someone1@example.com",
+      // password: "someHash",
+    };
+
+    chai
+      .request(server)
+      .post(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(data)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        // expect an error to occur
+        expect(err).to.be.null;
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("error", "Password not provided");
         done();
       });
   });
@@ -310,18 +404,21 @@ describe("POST /user", () => {
     } 
     */
 
+    // construct data with missing field that is not email, password
     const data: any = {
       firstName: "Some",
       email: "someone1@example.com",
       password: "someHash",
     };
+
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err: any, res: request.Response) => {
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response
+        // expect data error to occur
         expect(err).to.be.null;
         expect(res).to.have.status(422);
         expect(res).to.have.header(
@@ -331,7 +428,7 @@ describe("POST /user", () => {
         expect(res).to.be.json;
         expect(res.body).to.have.property(
           "error",
-          "Missing the following field(s): surname"
+          "User validation failed: surname: Surname not provided"
         );
         done();
       });
@@ -375,17 +472,20 @@ describe("POST /user", () => {
     }
     */
 
+    // construct data with multiple missing fields, that aren't email, password
     const data: any = {
-      firstName: "Some",
-      surname: "One",
+      email: "someone@example.com",
+      password: "One",
     };
+
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err: any, res: request.Response) => {
+      .end((err: any, res: ChaiHttp.Response) => {
         // check response
+        // expect data error to occur
         expect(err).to.be.null;
         expect(res).to.have.status(422);
         expect(res).to.have.header(
@@ -395,7 +495,7 @@ describe("POST /user", () => {
         expect(res).to.be.json;
         expect(res.body).to.have.property(
           "error",
-          "Missing the following field(s): email, password"
+          "User validation failed: surname: Surname not provided, firstName: First Name not provided"
         );
 
         done();
@@ -405,6 +505,8 @@ describe("POST /user", () => {
   // insert fails - return 422 error
   it("Duplicate email provided", (done: any) => {
     // returns error code and message
+
+    // contruct dummy user
     const data: any = {
       firstName: "Some",
       surname: "One",
@@ -412,18 +514,21 @@ describe("POST /user", () => {
       password: "someHash",
     };
 
+    // add the dummy user to the collection
     chai
       .request(server)
       .post(endpoint)
       .set("Content-Type", "application/json; charset=utf-8")
       .send(data)
-      .end((err1: any, res1: request.Response) => {
+      .end((err1: any, res1: ChaiHttp.Response) => {
+        // try and add the dummy user again
         chai
           .request(server)
           .post(endpoint)
           .set("Content-Type", "application/json; charset=utf-8")
           .send(data)
-          .end((err: any, res: request.Response) => {
+          .end((err: any, res: ChaiHttp.Response) => {
+            // expect error to occur due to UNIQUE identifier on emails in model
             expect(res).to.have.status(422);
             expect(res).to.have.header(
               "Content-Type",
@@ -436,6 +541,102 @@ describe("POST /user", () => {
             );
             done();
           });
+      });
+  });
+});
+
+describe("GET /auth/id", () => {
+  // endpoint
+  const endpoint = "/api/auth/id";
+
+  // dummy user data
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
+
+  let userToken: string;
+
+  // connect to in-memory db
+  before(async function () {
+    await dbHandler.connect();
+  });
+
+  // empty mongod before each test (so no conflicts)
+  beforeEach(async function () {
+    await dbHandler.clear();
+
+    // create dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
+
+    // get the user's token
+    userToken = res.body.token;
+  });
+
+  // disconnect from in-memory db
+  after(async function () {
+    await dbHandler.close();
+  });
+
+  it("returns the user id", (done: any) => {
+    // successfully translates JWT to id
+
+    chai
+      .request(server)
+      .get(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        // expect to have an id property
+        expect(err).to.be.null;
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("id");
+
+        done();
+      });
+  });
+
+  it("rejects invalid tokens", (done: any) => {
+    // returns error code and message
+
+    // craft invalid token
+    const dummyToken =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYwYmQzYzI2NDMyM2QwZjkwNjI3NWY0MiIsImlhdCI6MTYyMzAxNDQzOCwiZXhwIjoxNjIzMDE2MjM4fQ.VmvD5SzDg9xFeQQN5cB0jsa4bgHoOURMQroXhE_4QCU";
+
+    chai
+      .request(server)
+      .get(endpoint)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + dummyToken)
+      .end((err: any, res: ChaiHttp.Response) => {
+        // check response
+        // expect invalid token error
+        expect(err).to.be.null;
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.not.have.property("id");
+        expect(res.body).to.have.property(
+          "message",
+          "Failed to authenticate token."
+        );
+
+        done();
       });
   });
 });
