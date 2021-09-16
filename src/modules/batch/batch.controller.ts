@@ -123,6 +123,53 @@ let BatchController = {
       });
   },
 
+  findLabellerExpiry: async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    // get the batch
+    BatchModel.findById(req.params.id)
+      .then((batch: any) => {
+        if (!batch) {
+          // no batch found with this id
+          return res.status(404).send({
+            message: "Batch not found with id " + req.params.id,
+          });
+        }
+
+        // we have the batch
+        // look through it and find the current user as a labeller
+        for (let labeller of batch.labellers) {
+          if (String(labeller.labeller) === String(req.body.userId)) {
+            // we have found us
+            // return the associated expiry time
+            return res.status(200).json({
+              expiry: labeller.expiry,
+            });
+          }
+        }
+
+        // if we get here, then we were not found as a labeller - return an error
+        return res.status(401).json({
+          message: "User is not a labeller for this batch",
+        });
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(422).send({
+            message: "Malformed batch id " + req.params.id,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving batch with id " + req.params.id,
+        });
+      });
+  },
+
   determineAvailableBatches: async (
     userId: Mongoose.Types.ObjectId,
     jobId: Mongoose.Types.ObjectId,
