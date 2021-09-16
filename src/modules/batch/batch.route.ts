@@ -5,7 +5,7 @@ const VerifyToken = require("../auth/VerifyToken");
 const router = express.Router();
 router.get("/", BatchController.findAll);
 router.get("/next/:job", VerifyToken, BatchController.findNext); // return the next batch available number
-router.get("/expiry/:id", BatchController.findLabellerExpiry); // get a user's expiry for a particular batch with id
+router.get("/expiry/:id", VerifyToken, BatchController.findLabellerExpiry); // get a user's expiry for a particular batch with id
 router.get("/:id", VerifyToken, BatchController.findOneComplete); // get a particular batch with id
 
 //router.get("/", VerifyToken,BatchController.findProgress);
