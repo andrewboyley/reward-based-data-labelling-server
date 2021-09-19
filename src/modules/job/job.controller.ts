@@ -4,6 +4,8 @@ import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
 import ItemController from "../LabelledItem/item.controller";
 import JobModel from "./job.model";
+import fs from "fs";
+import path from "path";
 
 async function checkIfBatchIsAvailable(
   job: any,
@@ -284,6 +286,133 @@ let JobController = {
           // something was wrong with the id - it was malformed
           return res.status(404).send({
             message: "Job not found with id " + req.params.id,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving job with id " + req.params.id,
+        });
+      });
+  },
+
+  // generate a csv file with the job labels
+  exportJob: async (req: Request, res: Response, next: NextFunction) => {
+    // make sure we have an id
+    if (!req.params.id) {
+      return res.status(422).send({
+        message: "Job ID not provided",
+      });
+    }
+
+    // set up the file path
+    const filepath = "./exports/" + req.params.id + ".csv";
+
+    // determine the file's data
+    let data: string = "";
+    const fieldDelimiter = ",";
+    const arrayDelimiter = ";";
+
+    // get the image data
+    JobModel.findById(req.params.id)
+      .then(async (job: any): Promise<boolean> => {
+        // double check we have a job
+        if (!job) {
+          res.status(404).json({
+            message: "Job not found with id " + req.params.id,
+          });
+
+          return false;
+        }
+
+        // we have the job - check that we are the author of this job
+        if (String(job.author) !== req.body.userId) {
+          // we are not the author - can't view the job labels
+          res.status(401).json({
+            message: "You are not authorised to export this job",
+          });
+
+          return false;
+        }
+
+        // we now have a valid request and data
+        // now we need to get the images with the correct labels
+        job = job.toObject();
+        let images = await ItemController.determineImageLabelsInJob(job._id);
+
+        if (!images) {
+          // images is null - error occurred
+          res.status(500).json({
+            message:
+              "An error occurred while processing the labels for this job",
+          });
+
+          return false;
+        } else {
+          // assign images to data
+
+          // write the "header line"
+          data +=
+            "image_filename" +
+            fieldDelimiter +
+            "first_label" +
+            arrayDelimiter +
+            "second_label" +
+            arrayDelimiter +
+            "other_labels\n";
+
+          // write the image data
+          for (let i = 0; i < images.length; i++) {
+            const image = images[i];
+            // write the filename
+            let imageString = image.value + fieldDelimiter;
+            for (let assignedLabel of image.assignedLabels) {
+              // write the labels in order
+              imageString += assignedLabel + arrayDelimiter;
+            }
+            // remove the last delimiter
+            data += imageString.slice(0, -1);
+
+            if (i !== images.length - 1) {
+              // add a newline, provided this is not the last line
+              data += "\n";
+            }
+          }
+
+          return true;
+        }
+
+        // return images;
+      })
+      .then((status: any) => {
+        if (!status) {
+          // images is also used as a flag
+          // if it is null, a response has already been sent
+          return;
+        }
+
+        // create the file, and return it, then remove the file
+        fs.writeFile(filepath, data, (err: any) => {
+          if (err) {
+            // an error occurred - return failed
+            return res.status(500).json({
+              message: err.code,
+            });
+          } else {
+            res.sendFile(path.resolve(filepath), (err: any) => {
+              // once the file has been sent, remove it
+              fs.unlink(filepath, (err: any) => {
+                if (err) console.error(err);
+              });
+            });
+          }
+        });
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(422).send({
+            message: "Malformed job id " + req.params.id,
           });
         }
 
