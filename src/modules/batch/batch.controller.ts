@@ -435,7 +435,7 @@ let BatchController = {
     let user:any;
 
     // find the user to update
-    console.log(req.params)
+    //console.log(req.params)
     UserModel.findById(req.body.userId)
       .then((res: any) => {
         user = res;
@@ -447,7 +447,7 @@ let BatchController = {
         }
 
         //find the reward amount
-        let reward = 1;
+        //let reward = 1;
         return JobModel.findById(req.params.job)
 
         //continues in the promise chain
@@ -507,10 +507,6 @@ let BatchController = {
       });
   },
 };
-
-async function getReward(){
-  
-}
 
 async function manageExpiry() {
   console.log("Checking if any batches have expired...");
