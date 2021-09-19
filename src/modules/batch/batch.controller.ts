@@ -3,7 +3,9 @@ import Mongoose, { Schema } from "mongoose";
 import JobModel from "../job/job.model";
 import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
+import UserModel from "../user/user.model"
 import multer from "multer"; // DO NOT REMOVE - typescript things
+import JobController from "../job/job.controller";
 
 async function removeUserLabels(
   batch: any,
@@ -363,7 +365,152 @@ let BatchController = {
         });
       });
   },
+
+  /*setReward: async (req: Request, res: Response, next: NextFunction) => {
+    // set the reward available to claim by the user
+
+    // find the user to update
+    BatchModel.findById(req.params.batch)
+      .then((batch: any) => {
+        // check we actually have the batch
+        if (!batch) {
+          return res
+            .status(404)
+            .send({ message: "Batch not found with ID " + req.params.batch });
+        }
+
+        //find the job that the batch belongs to
+          //calculate reward as reward/labellers/batchamount
+        //batch.job
+
+        // update the labels array
+        for (let i = 0; i < batch.labellers.length; i++) {
+          const labeller = batch.labellers[i];
+          if (String(labeller.labeller) === String(req.body.userId)) {
+            // this is the current user
+            batch.labellers[i].completed = true;
+
+            // don't look any further
+            break;
+          }
+        }
+
+        // save the changes
+        batch
+          .save()
+          .then((updatedBatch: any) => {
+            // update performed successfully
+            return res.status(204).send();
+          })
+          .catch((err: any) => {
+            if (err.message) {
+              res.status(422).send({
+                message: err.message,
+              });
+            } else {
+              // some other error occurred
+              res.status(500).send({
+                message: "Some error occurred while updating the batch status.",
+              });
+            }
+          });
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Batch not found with id " + req.params.batch,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving batch with id " + req.params.batch,
+        });
+      });
+  },*/
+  
+  updateReward: async (req: Request, res: Response, next: NextFunction) => {
+    // update the amount of reward the user has available
+    let user:any;
+
+    // find the user to update
+    console.log(req.params)
+    UserModel.findById(req.body.userId)
+      .then((res: any) => {
+        user = res;
+        // check we actually have the user
+        if (!user) {
+          return res
+            .status(404)
+            .send({ message: "User not found with ID " + req.params.batch });
+        }
+
+        //find the reward amount
+        let reward = 1;
+        return JobModel.findById(req.params.job)
+
+        //continues in the promise chain
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "User not found with id " + req.params.user,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving user with id " + req.params.user,
+        });
+      })
+      .then((job:any) => {
+        let reward = job.rewards/job.numLabellersRequired/ job.total_batches;
+
+        // update the reward amount in user
+        user.rewardCount = user.rewardCount + reward;
+
+        // save the changes
+        user
+          .save()
+          .then((updatedUser: any) => {
+            // update performed successfully
+            return res.status(204).send();
+          })
+          .catch((err: any) => {
+            if (err.message) {
+              res.status(422).send({
+                message: err.message,
+              });
+            } else {
+              // some other error occurred
+              res.status(500).send({
+                message: "Some error occurred while updating the user reward amount.",
+              });
+            }
+          });
+        
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Job not found with id " + req.params.job,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving job with id " + req.params.job,
+        });
+      });
+  },
 };
+
+async function getReward(){
+  
+}
 
 async function manageExpiry() {
   console.log("Checking if any batches have expired...");
