@@ -299,11 +299,11 @@ let JobController = {
   // generate a csv file with the job labels
   exportJob: async (req: Request, res: Response, next: NextFunction) => {
     // make sure we have an id
-    if (!req.params.id) {
-      return res.status(422).send({
-        message: "Job ID not provided",
-      });
-    }
+    // if (!req.params.id) {
+    //   return res.status(422).send({
+    //     message: "Job ID not provided",
+    //   });
+    // }
 
     // set up the file path
     const filepath = "./exports/" + req.params.id + ".csv";
@@ -411,7 +411,7 @@ let JobController = {
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
           // something was wrong with the id - it was malformed
-          return res.status(422).send({
+          return res.status(422).json({
             message: "Malformed job id " + req.params.id,
           });
         }

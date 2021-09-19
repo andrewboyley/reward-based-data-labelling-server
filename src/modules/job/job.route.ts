@@ -10,7 +10,7 @@ router.get("/available", VerifyToken, JobController.findAvailable); // get jobs 
 router.get("/authored", VerifyToken, JobController.findAuthored); // get jobs that user authored
 router.get("/accepted", VerifyToken, JobController.findAccepted); // get jobs that user accepted
 router.get("/labelled/:id", VerifyToken, JobController.findJobLabels); // get a complete job, with the labels as well
-router.get("/export/:id", JobController.exportJob); // export the job with id, with labels, to a csv file
+router.get("/export/:id", VerifyToken, JobController.exportJob); // export the job with id, with labels, to a csv file
 router.get("/:id", VerifyToken, JobController.findOne);
 
 router.post("/", VerifyToken, JobController.create); // create a job

@@ -23,7 +23,7 @@ describe("GET /job", () => {
   let dummyJobId: string;
   let userId: string;
   let imageId: string;
-  let mockJob: any;
+  let imageData: any;
 
   // dummy user insert
   const user: any = {
@@ -90,7 +90,6 @@ describe("GET /job", () => {
       .send(dataInsert);
 
     dummyJobId = res.body._id;
-    mockJob = res.body;
 
     res = await chai
       .request(server)
@@ -109,6 +108,7 @@ describe("GET /job", () => {
       .query({ jobID: dummyJobId });
 
     imageId = res.body[0]._id;
+    imageData = res.body[0];
   });
 
   afterEach(async function () {
@@ -595,6 +595,169 @@ describe("GET /job", () => {
         expect(res.body).to.have.property(
           "message",
           "You are not authorised to view this job's labels"
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - successful", (done: any) => {
+    const labels = ["one", "two"];
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct file structure is returned
+
+        expect(res).to.have.status(200);
+        expect(res).to.have.header("Content-Type", "text/csv; charset=UTF-8");
+
+        expect(res).to.have.property("text");
+
+        const csvContent = res.text.split("\n");
+
+        expect(csvContent).to.have.length(2);
+        expect(csvContent[0]).to.equal(
+          "image_filename,first_label;second_label;other_labels"
+        );
+        expect(csvContent[1]).to.equal(imageData.value + ",one;two");
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - job id invalid", (done: any) => {
+    const labels = ["one", "two"];
+    const wrongId = dummyJobId + "f";
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + wrongId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct file structure is returned
+
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Malformed job id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - job id incorrect", (done: any) => {
+    const labels = ["one", "two"];
+    const wrongId = dummyJobId.slice(1) + "f";
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + wrongId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct file structure is returned
+
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Job not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - not author", (done: any) => {
+    // get the job, with the images and labels
+
+    // create another user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // try and get the job as this user
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "You are not authorised to export this job"
         );
 
         done();
