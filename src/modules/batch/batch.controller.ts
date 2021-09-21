@@ -410,6 +410,95 @@ let BatchController = {
         });
       });
   },
+
+  batchProgress: async (
+    jobID: Mongoose.Types.ObjectId
+  ) => {
+    // find the number total bataches completed for a specific job
+    const batchesCompleted: any = await BatchModel.aggregate([
+      {
+        $match: {
+          job: jobID,
+        }
+      },
+      {
+        $group: {
+          _id: "$job",
+          count: {
+            $sum: {
+              $size: {
+                $filter: {
+                  input: "$labellers.completed",
+                  cond: "$$this"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+    // find the number total bataches not completed for a specific job
+    const batchesNotCompleted: any = await BatchModel.aggregate([{
+      $match: {
+        job: jobID
+      }
+    },
+    {
+      $group: {
+        _id: "$job",
+        count: {
+          $sum: {
+            $size: {
+              $filter: {
+                input: "$labellers.completed",
+                cond: {
+                  $not: "$$this"
+                }
+              }
+            }
+          }
+        }
+      }
+    }]);
+
+    //retrieve the values from the query output
+    const total_batches_completed = Number(Object.values(batchesCompleted[0])[1]);
+    const total_batches_not_completed = Number(Object.values(batchesNotCompleted[0])[1]);
+
+    //special case: when both are 0 return progress as zero to avoid null value in the total calculation
+    if(total_batches_completed ==0 && total_batches_not_completed ==0){
+      return [{ "progress": 0 }];
+    }
+
+    // calculate the job completion percentage
+    const total_progress = (total_batches_completed / (total_batches_completed + total_batches_not_completed)) * 100;
+
+    //return the total progress of a job as a json
+    return [{ "progress": total_progress }];
+  },
+
+  findProgress: async (req: Request, res: Response, next: NextFunction) => {
+    //get the job
+    const job: any = await JobModel.findById(req.params.job);
+    if (job === null)
+      return res.status(404).json({ error: "Job does not exist" });
+
+    //find the progress for the job
+    const jobprogress = await BatchController.batchProgress(
+      job._id
+    );
+    // return empty obj if there is no progress, otherwise return the progress
+    if (jobprogress !== null) {
+      // nothing went wrong
+      // return empty obj if no batch available, otherwise return a single batch
+      res.status(200).json(jobprogress);
+    } else {
+      // something went wrong
+      return res.status(400).json({ error: "Something went wrong with getting the job progress" });
+    }
+  },
+
 };
 
 async function manageExpiry() {
