@@ -3,7 +3,7 @@ import Mongoose, { Schema } from "mongoose";
 import JobModel from "../job/job.model";
 import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
-import UserModel from "../user/user.model"
+import UserModel from "../user/user.model";
 import multer from "multer"; // DO NOT REMOVE - typescript things
 import JobController from "../job/job.controller";
 
@@ -122,6 +122,53 @@ let BatchController = {
       })
       .catch((err: any) => {
         return res.status(500).json({ message: err.message });
+      });
+  },
+
+  findLabellerExpiry: async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    // get the batch
+    BatchModel.findById(req.params.id)
+      .then((batch: any) => {
+        if (!batch) {
+          // no batch found with this id
+          return res.status(404).send({
+            message: "Batch not found with id " + req.params.id,
+          });
+        }
+
+        // we have the batch
+        // look through it and find the current user as a labeller
+        for (let labeller of batch.labellers) {
+          if (String(labeller.labeller) === String(req.body.userId)) {
+            // we have found us
+            // return the associated expiry time
+            return res.status(200).json({
+              expiry: labeller.expiry,
+            });
+          }
+        }
+
+        // if we get here, then we were not found as a labeller - return an error
+        return res.status(401).json({
+          message: "User is not a labeller for this batch",
+        });
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(422).send({
+            message: "Malformed batch id " + req.params.id,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving batch with id " + req.params.id,
+        });
       });
   },
 
@@ -429,10 +476,10 @@ let BatchController = {
         });
       });
   },*/
-  
+
   updateReward: async (req: Request, res: Response, next: NextFunction) => {
     // update the amount of reward the user has available
-    let user:any;
+    let user: any;
 
     // find the user to update
     //console.log(req.params)
@@ -448,7 +495,7 @@ let BatchController = {
 
         //find the reward amount
         //let reward = 1;
-        return JobModel.findById(req.params.job)
+        return JobModel.findById(req.params.job);
 
         //continues in the promise chain
       })
@@ -465,8 +512,8 @@ let BatchController = {
           message: "Error retrieving user with id " + req.params.user,
         });
       })
-      .then((job:any) => {
-        let reward = job.rewards/job.numLabellersRequired/ job.total_batches;
+      .then((job: any) => {
+        let reward = job.rewards / job.numLabellersRequired / job.total_batches;
 
         // update the reward amount in user
         user.rewardCount = user.rewardCount + reward;
@@ -486,11 +533,11 @@ let BatchController = {
             } else {
               // some other error occurred
               res.status(500).send({
-                message: "Some error occurred while updating the user reward amount.",
+                message:
+                  "Some error occurred while updating the user reward amount.",
               });
             }
           });
-        
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
@@ -505,6 +552,100 @@ let BatchController = {
           message: "Error retrieving job with id " + req.params.job,
         });
       });
+  },
+  batchProgress: async (jobID: Mongoose.Types.ObjectId) => {
+    // find the number total bataches completed for a specific job
+    const batchesCompleted: any = await BatchModel.aggregate([
+      {
+        $match: {
+          job: jobID,
+        },
+      },
+      {
+        $group: {
+          _id: "$job",
+          count: {
+            $sum: {
+              $size: {
+                $filter: {
+                  input: "$labellers.completed",
+                  cond: "$$this",
+                },
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    // find the number total bataches not completed for a specific job
+    const batchesNotCompleted: any = await BatchModel.aggregate([
+      {
+        $match: {
+          job: jobID,
+        },
+      },
+      {
+        $group: {
+          _id: "$job",
+          count: {
+            $sum: {
+              $size: {
+                $filter: {
+                  input: "$labellers.completed",
+                  cond: {
+                    $not: "$$this",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    //retrieve the values from the query output
+    const total_batches_completed = Number(
+      Object.values(batchesCompleted[0])[1]
+    );
+    const total_batches_not_completed = Number(
+      Object.values(batchesNotCompleted[0])[1]
+    );
+
+    //special case: when both are 0 return progress as zero to avoid null value in the total calculation
+    if (total_batches_completed == 0 && total_batches_not_completed == 0) {
+      return [{ progress: 0 }];
+    }
+
+    // calculate the job completion percentage
+    const total_progress =
+      (total_batches_completed /
+        (total_batches_completed + total_batches_not_completed)) *
+      100;
+
+    //return the total progress of a job as a json
+    return [{ progress: total_progress }];
+  },
+
+  findProgress: async (req: Request, res: Response, next: NextFunction) => {
+    //get the job
+    const job: any = await JobModel.findById(req.params.job);
+    if (job === null)
+      return res.status(404).json({ error: "Job does not exist" });
+
+    //find the progress for the job
+    const jobprogress = await BatchController.batchProgress(job._id);
+    // return empty obj if there is no progress, otherwise return the progress
+    if (jobprogress !== null) {
+      // nothing went wrong
+      // return empty obj if no batch available, otherwise return a single batch
+      res.status(200).json(jobprogress);
+    } else {
+      // something went wrong
+      return res
+        .status(400)
+        .json({ error: "Something went wrong with getting the job progress" });
+    }
   },
 };
 
