@@ -482,77 +482,85 @@ let BatchController = {
     let user: any;
 
     // find the user to update
-    //console.log(req.params)
     UserModel.findById(req.body.userId)
-      .then((res: any) => {
-        user = res;
+      .then((response: any): any => {
+        user = response;
         // check we actually have the user
         if (!user) {
           return res
             .status(404)
-            .send({ message: "User not found with ID " + req.params.batch });
+            .send({ message: "User not found with ID " + req.body.userId });
         }
 
         //find the reward amount
-        //let reward = 1;
-        return JobModel.findById(req.params.job);
+        JobModel.findById(req.params.job)
+          .then((job: any) => {
+            if (!job) {
+              return res
+                .status(404)
+                .send({ message: "Job not found with ID " + req.params.job });
+            }
+
+            let reward =
+              job.rewards / job.numLabellersRequired / job.total_batches;
+
+            // update the reward amount in user
+            user.rewardCount = user.rewardCount + reward;
+
+            // save the changes
+            user
+              .save()
+              .then((updatedUser: any) => {
+                // update performed successfully
+                return res.status(200).send({
+                  reward: updatedUser.rewardCount,
+                });
+              })
+              .catch((err: any) => {
+                if (err.message) {
+                  res.status(422).send({
+                    message: err.message,
+                  });
+                } else {
+                  // some other error occurred
+                  res.status(500).send({
+                    message:
+                      "Some error occurred while updating the user reward amount.",
+                  });
+                }
+              });
+          })
+          .catch((err: any) => {
+            if (err.kind === "ObjectId") {
+              // something was wrong with the id - it was malformed
+              return res.status(422).send({
+                message: "Malformed Job id " + req.params.job,
+              });
+            }
+
+            // some other error occurred
+            return res.status(500).send({
+              message: "Error retrieving job with id " + req.params.job,
+            });
+          });
 
         //continues in the promise chain
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
           // something was wrong with the id - it was malformed
-          return res.status(404).send({
-            message: "User not found with id " + req.params.user,
+          return res.status(422).send({
+            message: "Malformed User id " + req.body.userId,
           });
         }
 
         // some other error occurred
         return res.status(500).send({
-          message: "Error retrieving user with id " + req.params.user,
-        });
-      })
-      .then((job: any) => {
-        let reward = job.rewards / job.numLabellersRequired / job.total_batches;
-
-        // update the reward amount in user
-        user.rewardCount = user.rewardCount + reward;
-
-        // save the changes
-        user
-          .save()
-          .then((updatedUser: any) => {
-            // update performed successfully
-            return res.status(204).send();
-          })
-          .catch((err: any) => {
-            if (err.message) {
-              res.status(422).send({
-                message: err.message,
-              });
-            } else {
-              // some other error occurred
-              res.status(500).send({
-                message:
-                  "Some error occurred while updating the user reward amount.",
-              });
-            }
-          });
-      })
-      .catch((err: any) => {
-        if (err.kind === "ObjectId") {
-          // something was wrong with the id - it was malformed
-          return res.status(404).send({
-            message: "Job not found with id " + req.params.job,
-          });
-        }
-
-        // some other error occurred
-        return res.status(500).send({
-          message: "Error retrieving job with id " + req.params.job,
+          message: "Error retrieving user with id " + req.body.userId,
         });
       });
   },
+
   batchProgress: async (jobID: Mongoose.Types.ObjectId) => {
     // find the number total bataches completed for a specific job
     const batchesCompleted: any = await BatchModel.aggregate([
