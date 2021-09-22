@@ -21,6 +21,17 @@ let UserController = {
         });
       });
   },
+  getLeaderboard: async (req: Request, res: Response, next: NextFunction) => {
+    User.find({}).sort({ 'rewardCount': -1 }).limit(10).select({ "firstName": 1, "surname": 1, "_id": 0, "rewardCount": 1 }).exec(function (err, posts) {
+      if (err) {
+        return res.status(500).json({
+          message: err,
+        });
+      }
+
+      return res.status(200).json(posts);
+    })
+  }
 };
 
 export default UserController;
