@@ -587,48 +587,35 @@ let BatchController = {
     ]);
 
     // find the number total bataches not completed for a specific job
-    const batchesNotCompleted: any = await BatchModel.aggregate([
+    const denom: any = await JobModel.find(
       {
-        $match: {
-          job: jobID,
-        },
+        _id: jobID,
       },
       {
-        $group: {
-          _id: "$job",
-          count: {
-            $sum: {
-              $size: {
-                $filter: {
-                  input: "$labellers.completed",
-                  cond: {
-                    $not: "$$this",
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    ]);
+        numLabellersRequired: 1,
+        total_batches: 1,
+      }
+    );
 
     //retrieve the values from the query output
     const total_batches_completed = Number(
       Object.values(batchesCompleted[0])[1]
     );
-    const total_batches_not_completed = Number(
-      Object.values(batchesNotCompleted[0])[1]
-    );
+    const total_numLabellersNeeded = Number(denom[0]["numLabellersRequired"]);
+    const total_numBatches = Number(denom[0]["total_batches"]);
 
     //special case: when both are 0 return progress as zero to avoid null value in the total calculation
-    if (total_batches_completed == 0 && total_batches_not_completed == 0) {
+    if (
+      total_batches_completed == 0 &&
+      (total_numLabellersNeeded == 0 || total_numBatches == 0)
+    ) {
       return [{ progress: 0 }];
     }
 
     // calculate the job completion percentage
     const total_progress =
       (total_batches_completed /
-        (total_batches_completed + total_batches_not_completed)) *
+        (total_numLabellersNeeded * total_numBatches)) *
       100;
 
     //return the total progress of a job as a json
