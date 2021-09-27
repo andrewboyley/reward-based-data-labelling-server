@@ -486,11 +486,11 @@ let BatchController = {
       .then((response: any): any => {
         user = response;
         // check we actually have the user
-        if (!user) {
+        /*if (!user) {
           return res
             .status(404)
             .send({ message: "User not found with ID " + req.body.userId });
-        }
+        }*/
 
         //find the reward amount
         JobModel.findById(req.params.job)
@@ -512,7 +512,7 @@ let BatchController = {
               .save()
               .then((updatedUser: any) => {
                 // update performed successfully
-                return res.status(200).send({
+                return res.status(204).send({
                   reward: updatedUser.rewardCount,
                 });
               })
