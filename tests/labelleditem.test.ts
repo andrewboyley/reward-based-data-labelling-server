@@ -9,7 +9,9 @@ import chaiHttp from "chai-http";
 import rimraf from "rimraf";
 import dbHandler from "../src/db-handler";
 import server from "../src/server";
-import ItemController from "../src/modules/LabelledItem/item.controller";
+import ItemController, {
+  determineSortedImageLabels,
+} from "../src/modules/LabelledItem/item.controller";
 import Mongoose from "mongoose";
 
 const expect = chai.expect;
@@ -662,5 +664,119 @@ describe("Image utility functions", () => {
         expect(String(label.labeller)).to.not.equal(userId);
       }
     }
+  });
+
+  it("sorts the image labels by frequency", (done: any) => {
+    // const labels = ["one", "two"];
+
+    // create 2 new users and assign labels to the images
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // do the update with this user
+        return chai
+          .request(server)
+          .put(endpoint + "/" + imageId) // label this image
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send({ labels: [labels[1]] }); // attach payload
+      })
+      .then((res: ChaiHttp.Response) => {
+        // do the second user
+        return chai
+          .request(server)
+          .post("/api/auth/register")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .send({
+            firstName: "Some",
+            surname: "One",
+            email: "someone@example.com2",
+            password: "someHash",
+          });
+      })
+      .then((res: ChaiHttp.Response) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/" + imageId) // label this image
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send({ labels: labels });
+      })
+      .then((res: ChaiHttp.Response) => {
+        // now the image has been labelled by 3 different users
+
+        // get the image
+        return chai
+          .request(server)
+          .get(endpoint)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .query({ jobID: dummyJobId });
+      })
+      .then((res: ChaiHttp.Response) => {
+        // labels[0] has two occurance
+        // labels[1] has three occurrances
+
+        const sortedLabelsDesired = [labels[1], labels[0]];
+        const sortedLabelsActual = determineSortedImageLabels(res.body[0]);
+
+        expect(sortedLabelsActual).deep.equal(sortedLabelsDesired);
+        done();
+      })
+      .catch(done);
+  });
+
+  it("'assigns' the correct labels to all the images in a job", (done: any) => {
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // do the update with this user
+        return chai
+          .request(server)
+          .put(endpoint + "/" + imageId) // label this image
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send({ labels: [labels[1]] }); // attach payload
+      })
+      .then((res: ChaiHttp.Response) => {
+        // now the image has been labelled by 2 different users
+
+        // perform the 'labelling'
+        return ItemController.determineImageLabelsInJob(
+          Mongoose.Types.ObjectId(dummyJobId)
+        );
+      })
+      .then((res: any) => {
+        // res is going to be an array of the images - we will only have one
+        res = res[0];
+
+        // labels[1] will have two occurrances
+        // labels[0] will have one occurrance
+
+        const assignedLabelsDesired = [labels[1], labels[0]];
+
+        expect(res).to.have.property("assignedLabels");
+        expect(res.assignedLabels).deep.equal(assignedLabelsDesired);
+        expect(res).to.not.have.property("labels");
+
+        done();
+      })
+      .catch(done);
   });
 });

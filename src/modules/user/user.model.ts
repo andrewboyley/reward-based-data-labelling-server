@@ -32,6 +32,11 @@ const UserSchema: any = new schema({
     type: String,
     default: "generic.jpeg", // use a generic image if one is not provided
   },
+  //this refers to the amount that a user has left to spend - it is not the same as the cumulative amount
+  rewardCount: {
+    type: Number,
+    default: 0,
+  },
 });
 
 // create model
