@@ -39,6 +39,50 @@ async function checkIfBatchIsAvailable(
   return batches !== null && batches.length !== 0;
 }
 
+async function isJobCompleted(
+  jobId: Mongoose.Types.ObjectId
+): Promise<boolean> {
+  // we need to check that ((num batches) x (num labellers required)) batches are "completed"
+
+  // get the number of batches and the number of labellers required for this job
+  const job: any = await JobModel.findById(jobId);
+
+  // job not found
+  if (!job) return false;
+
+  // job found - determine desired "completed" number
+  const desiredNumber: number = job.total_batches * job.numLabellersRequired;
+
+  // count the number of completed batches for this job
+  const batches: any = await BatchModel.find({
+    job: jobId,
+    labellers: {
+      $elemMatch: {
+        completed: true,
+      },
+    },
+  });
+
+  // no batches found
+  if (!batches || batches.length === 0) return false;
+
+  // batches found - loop through and count
+  let actualNumber: number = 0;
+  for (let batch of batches) {
+    // loop through all the labellers for this batch
+    for (let labeller of batch.labellers) {
+      // if this is "completed", increment the counter
+      if (Boolean(labeller.completed)) {
+        actualNumber++;
+      }
+    }
+  }
+
+  // have now counted the number of batches that have actually been labelled
+  // check if this is the same as the desired number
+  return actualNumber === desiredNumber;
+}
+
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
@@ -564,4 +608,4 @@ let JobController = {
 };
 
 export default JobController;
-export { checkIfBatchIsAvailable };
+export { checkIfBatchIsAvailable, isJobCompleted };
