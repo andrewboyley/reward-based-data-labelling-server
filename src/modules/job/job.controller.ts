@@ -83,6 +83,31 @@ async function isJobCompleted(
   return actualNumber === desiredNumber;
 }
 
+async function countCompletedJobsForUser(
+  userId: Mongoose.Types.ObjectId
+): Promise<number> {
+  // we need to get all the jobs that have a batch labelled by the user
+  // count how many of these jobs are completed
+
+  // get the job IDs that have a batch completely labelled by the current user
+  const distinctJobs = await BatchModel.distinct("job", {
+    labellers: {
+      $elemMatch: { labeller: userId, completed: true },
+    },
+  });
+
+  // for these jobs, count how many are completed
+  let counter: number = 0;
+  for (let job of distinctJobs) {
+    if (await isJobCompleted(Mongoose.Types.ObjectId(job))) {
+      // if the job is completed, increment the counter
+      counter++;
+    }
+  }
+
+  return counter;
+}
+
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
@@ -608,4 +633,4 @@ let JobController = {
 };
 
 export default JobController;
-export { checkIfBatchIsAvailable, isJobCompleted };
+export { checkIfBatchIsAvailable, isJobCompleted, countCompletedJobsForUser };
