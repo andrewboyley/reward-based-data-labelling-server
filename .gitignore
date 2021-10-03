@@ -6,6 +6,8 @@ mongo_data
 # user files
 uploads/jobs/*
 !uploads/jobs/.jobs
+exports/*
+!exports/.jobs
 coverage
 .coveralls.yml
 .env

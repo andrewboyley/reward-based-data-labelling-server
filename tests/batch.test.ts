@@ -992,136 +992,579 @@ describe("Batch expiry", () => {
       .then(done)
       .catch(done);
   });
+
+  it("Returns expiry time for a user", (done: any) => {
+    let expiryTime: string;
+
+    BatchModel.findById(dummyBatchId)
+      .then((batch: any) => {
+        // get the correct user
+        for (let labeller of batch.labellers) {
+          if (String(labeller.labeller) === String(userId)) {
+            // we have found us
+            // return the associated expiry time
+            expiryTime = labeller.expiry.toISOString();
+          }
+        }
+
+        return chai
+          .request(server)
+          .get(endpoint + "/expiry/" + dummyBatchId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: ChaiHttp.Response) => {
+        // get the expiry time from this
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property("expiry", expiryTime);
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Returns unauthorised for a non-labeller", (done: any) => {
+    // create a dummy user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // get the user token
+        return chai
+          .request(server)
+          .get(endpoint + "/expiry/" + dummyBatchId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token);
+      })
+      .then((res: ChaiHttp.Response) => {
+        // get the expiry time from this
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "User is not a labeller for this batch"
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Returns Not Found for an incorrect batch id", (done: any) => {
+    const wrongId = dummyBatchId.slice(1) + "f";
+    chai
+      .request(server)
+      .get(endpoint + "/expiry/" + wrongId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res: ChaiHttp.Response) => {
+        // get the expiry time from this
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Batch not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Returns Not Found for an invalid batch id", (done: any) => {
+    const wrongId = dummyBatchId + "f";
+    chai
+      .request(server)
+      .get(endpoint + "/expiry/" + wrongId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res: ChaiHttp.Response) => {
+        // get the expiry time from this
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Malformed batch id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
 });
 
 describe("Complete a batch", () => {
+  const endpoint = "/api/batch/";
 
-	const endpoint = "/api/batch/";
+  // dummy data
+  let userToken = "";
 
-	// dummy data
-	let userToken = "";
+  let dummyJobId: any;
+  let mockJob: any;
 
-	let dummyJobId: any;
-	let mockJob: any;
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
 
-	const user: any = {
-		firstName: "Some",
-		surname: "One",
-		email: "someone@example.com",
-		password: "someHash",
-	};
+  // dummy job insert
+  let dataInsert: any = {
+    title: "Some title",
+    description: "Some description",
+    //date created does not need to be inserted because it is not changable by user
+    // author: "Replaced in a bit",
+    numLabellersRequired: 2,
+    labels: ["A"],
+    reward: 1,
+    labellers: [],
+  };
 
-	// dummy job insert
-	let dataInsert: any = {
-		title: "Some title",
-		description: "Some description",
-		//date created does not need to be inserted because it is not changable by user
-		// author: "Replaced in a bit",
-		numLabellersRequired: 2,
-		labels: ["A"],
-		reward: 1,
-		labellers: [],
-	};
+  before(async function () {
+    await dbHandler.connect();
+  });
 
-	before(async function () {
-		await dbHandler.connect();
-	})
+  beforeEach(async function () {
+    await dbHandler.clear();
 
-	beforeEach(async function () {
-		await dbHandler.clear();
+    // create a dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
 
-		// create a dummy user
-		let res: ChaiHttp.Response = await chai
-			.request(server)
-			.post("/api/auth/register")
-			.set("Content-Type", "application/json; charset=utf-8")
-			.send(user);
+    // get the user token
+    userToken = res.body.token;
 
-		// get the user token
-		userToken = res.body.token;
+    dataInsert = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+      labellers: [],
+    };
 
-		dataInsert = {
-			title: "Some title",
-			description: "Some description",
-			//date created does not need to be inserted because it is not changable by user
-			numLabellersRequired: 2,
-			labels: ["A"],
-			reward: 1,
-			labellers: [],
-		};
+    // create this job to create the batches
+    res = await chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(dataInsert);
 
-		// create this job to create the batches 
-		res = await chai
-			.request(server)
-			.post("/api/job")
-			.set("Content-Type", "application/json; charset=utf-8")
-			.set("Authorization", "Bearer " + userToken)
-			.send(dataInsert);
+    dummyJobId = res.body._id;
+    mockJob = res.body;
 
-		dummyJobId = res.body._id;
-		mockJob = res.body;
+    await chai
+      .request(server)
+      .post("/api/images")
+      .set("Content-Type", "multipart/form-data")
+      .set("Authorization", "Bearer " + userToken)
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png");
+  });
+  // disconnect from in-memory db
+  after(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+    await dbHandler.close();
+  });
 
-		await chai
-			.request(server)
-			.post("/api/images")
-			.set("Content-Type", "multipart/form-data")
-			.set("Authorization", "Bearer " + userToken)
-			.field("jobID", dummyJobId)
-			.attach("image", "tests/test_image/png.png");
+  afterEach(async () => {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+  });
 
-	});
-	// disconnect from in-memory db
-	after(async function () {
-		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
-		await dbHandler.close();
-	});
+  it("Completes batch", (done: any) => {
+    let batchID: any;
 
-	afterEach(async () => {
-		rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
-	});
+    chai
+      .request(server)
+      .get(endpoint + "/next/" + dummyJobId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res1) => {
+        batchID = res1.body._id;
+        return chai
+          .request(server)
+          .put(endpoint + "/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res2) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res3) => {
+        expect(res3.status).to.equal(204);
+        done();
+      })
+      .catch(done);
+  });
 
+  it("Returns 404 when batchID not found", (done: any) => {
+    chai
+      .request(server)
+      .put(endpoint + "/complete/" + "4edd40c86762e0fb12000003")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res) => {
+        expect(res.status).to.equal(404);
+        done();
+      })
+      .catch(done);
+  });
+});
 
-	it("Completes batch", (done: any) => {
-		let batchID: any;
+describe("Update the user reward", () => {
+  const endpoint = "/api/batch/";
 
-		chai
-			.request(server)
-			.get(endpoint + "/next/" + dummyJobId)
-			.set("Content-Type", "application/json; charset=utf-8")
-			.set("Authorization", "Bearer " + userToken)
-			.then(res1 => {
-				batchID = res1.body._id;
-				return chai
-					.request(server)
-					.put(endpoint + "/labeller/" + batchID)
-					.set("Content-Type", "application/json; charset=utf-8")
-					.set("Authorization", "Bearer " + userToken);
-			}).then(res2 => {
+  // dummy data
+  let userToken = "";
 
-				return chai
-					.request(server)
-					.put(endpoint + "/complete/" + batchID)
-					.set("Content-Type", "application/json; charset=utf-8")
-					.set("Authorization", "Bearer " + userToken)
+  let dummyJobId: any;
+  let mockJob: any;
 
-			}).then(res3 => {
-				expect(res3.status).to.equal(204);
-				done();
-			}).catch(done);
-	})
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
 
-	it("Returns 404 when batchID not found", (done: any) => {
-		chai
-			.request(server)
-			.put(endpoint + "/complete/" + "4edd40c86762e0fb12000003")
-			.set("Content-Type", "application/json; charset=utf-8")
-			.set("Authorization", "Bearer " + userToken)
-			.then(res => {
+  // dummy job insert
+  let dataInsert: any = {
+    title: "Some title",
+    description: "Some description",
+    //date created does not need to be inserted because it is not changable by user
+    // author: "Replaced in a bit",
+    numLabellersRequired: 2,
+    labels: ["A"],
+    reward: 1,
+    labellers: [],
+  };
 
-				expect(res.status).to.equal(404);
-				done();
-			}).catch(done);
-	})
+  before(async function () {
+    await dbHandler.connect();
+  });
 
-})
+  beforeEach(async function () {
+    await dbHandler.clear();
 
+    // create a dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
+
+    // get the user token
+    userToken = res.body.token;
+
+    dataInsert = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+      labellers: [],
+    };
+
+    // create this job to create the batches
+    res = await chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(dataInsert);
+
+    dummyJobId = res.body._id;
+    mockJob = res.body;
+
+    await chai
+      .request(server)
+      .post("/api/images")
+      .set("Content-Type", "multipart/form-data")
+      .set("Authorization", "Bearer " + userToken)
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png");
+  });
+  // disconnect from in-memory db
+  after(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+    await dbHandler.close();
+  });
+
+  afterEach(async () => {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+  });
+
+  it("Updates reward", (done: any) => {
+    let batchID: any;
+
+    chai
+      .request(server)
+      .get(endpoint + "/next/" + dummyJobId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res1) => {
+        batchID = res1.body._id;
+        return chai
+          .request(server)
+          .put(endpoint + "/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res2) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res3) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/reward/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res4) => {
+        expect(res4.status).to.equal(204);
+        done();
+      })
+      .catch(done);
+  });
+
+  const badID: any = "4edd40c86762e0fb12000003";
+  it("Returns 404 when jobID not found", (done: any) => {
+    let batchID: any;
+
+    chai
+      .request(server)
+      .get(endpoint + "/next/" + dummyJobId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res1) => {
+        batchID = res1.body._id;
+        return chai
+          .request(server)
+          .put(endpoint + "/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res2) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res3) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/reward/" + badID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res4) => {
+        expect(res4.status).to.equal(404);
+        done();
+      })
+      .catch(done);
+  });
+});
+
+describe("Finding progress", () => {
+  const endpoint = "/api/batch/";
+
+  // dummy data
+  let userToken = "";
+
+  let dummyJobId: any;
+  let mockJob: any;
+
+  const user: any = {
+    firstName: "Some",
+    surname: "One",
+    email: "someone@example.com",
+    password: "someHash",
+  };
+
+  // dummy job insert
+  let dataInsert: any = {
+    title: "Some title",
+    description: "Some description",
+    //date created does not need to be inserted because it is not changable by user
+    // author: "Replaced in a bit",
+    numLabellersRequired: 2,
+    labels: ["A"],
+    reward: 1,
+    labellers: [],
+  };
+
+  before(async function () {
+    await dbHandler.connect();
+  });
+
+  beforeEach(async function () {
+    await dbHandler.clear();
+
+    // create a dummy user
+    let res: ChaiHttp.Response = await chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send(user);
+
+    // get the user token
+    userToken = res.body.token;
+
+    dataInsert = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+      labellers: [],
+    };
+
+    // create this job to create the batches
+    res = await chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(dataInsert);
+
+    dummyJobId = res.body._id;
+    mockJob = res.body;
+
+    await chai
+      .request(server)
+      .post("/api/images")
+      .set("Content-Type", "multipart/form-data")
+      .set("Authorization", "Bearer " + userToken)
+      .field("jobID", dummyJobId)
+      .attach("image", "tests/test_image/png.png");
+  });
+  // disconnect from in-memory db
+  after(async function () {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+    await dbHandler.close();
+  });
+
+  afterEach(async () => {
+    rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
+  });
+
+  it("Finds the progress", (done: any) => {
+    let batchID: any;
+
+    chai
+      .request(server)
+      .get(endpoint + "/next/" + dummyJobId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res1) => {
+        batchID = res1.body._id;
+        return chai
+          .request(server)
+          .put(endpoint + "/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res2) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res3) => {
+        return chai
+          .request(server)
+          .get(endpoint + "/progress/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res4) => {
+        expect(res4.status).to.equal(200);
+        done();
+      })
+      .catch(done);
+  });
+
+  const badID: any = "4edd40c86762e0fb12000003";
+  it("Returns 404 when jobID not found", (done: any) => {
+    let batchID: any;
+
+    chai
+      .request(server)
+      .get(endpoint + "/next/" + dummyJobId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res1) => {
+        batchID = res1.body._id;
+        return chai
+          .request(server)
+          .put(endpoint + "/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res2) => {
+        return chai
+          .request(server)
+          .put(endpoint + "/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res3) => {
+        return chai
+          .request(server)
+          .get(endpoint + "/progress/" + badID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res4) => {
+        expect(res4.status).to.equal(404);
+        done();
+      })
+      .catch(done);
+  });
+});

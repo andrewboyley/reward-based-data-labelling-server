@@ -3,11 +3,13 @@ import chaiHttp from "chai-http";
 import Mongoose from "mongoose";
 import rimraf from "rimraf";
 import { mock } from "sinon";
-const VerifyToken = require("../src/modules/auth/VerifyToken");
-
 import dbHandler from "../src/db-handler";
-import { checkIfBatchIsAvailable } from "../src/modules/job/job.controller";
+import {
+  checkIfBatchIsAvailable,
+  isJobCompleted,
+} from "../src/modules/job/job.controller";
 import server from "../src/server";
+const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 const expect = chai.expect;
 
@@ -20,7 +22,9 @@ describe("GET /job", () => {
   // dummy inserted ids
   let userToken = "";
   let dummyJobId: string;
-  let mockJob: any;
+  let userId: string;
+  let imageId: string;
+  let imageData: any;
 
   // dummy user insert
   const user: any = {
@@ -60,6 +64,15 @@ describe("GET /job", () => {
     // get the user token
     userToken = res.body.token;
 
+    // get the user id
+    res = await chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken);
+
+    userId = res.body.id;
+
     dataInsert = {
       title: "Some title",
       description: "Some description",
@@ -78,7 +91,6 @@ describe("GET /job", () => {
       .send(dataInsert);
 
     dummyJobId = res.body._id;
-    mockJob = res.body;
 
     res = await chai
       .request(server)
@@ -87,6 +99,17 @@ describe("GET /job", () => {
       .set("Authorization", "Bearer " + userToken)
       .field("jobID", dummyJobId)
       .attach("image", "tests/test_image/png.png");
+
+    // get the image id we have just uploaded
+    res = await chai
+      .request(server)
+      .get("/api/images/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .query({ jobID: dummyJobId });
+
+    imageId = res.body[0]._id;
+    imageData = res.body[0];
   });
 
   afterEach(async function () {
@@ -426,6 +449,321 @@ describe("GET /job", () => {
       expect(batchBody).to.have.property("labellers");
       expect(batchBody.labellers).to.deep.equal([]);
     }
+  });
+
+  it("Retrieves the 'assigned' labels for a job - successful", (done: any) => {
+    const labels = ["one", "two"];
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/labelled/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct job structure is returned
+
+        expect(res).to.have.status(200);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+        expect(res.body).to.have.property("_id");
+        expect(res.body).to.have.property("title");
+        expect(res.body).to.have.property("description");
+        expect(res.body).to.have.property("author", userId);
+        expect(res.body).to.have.property("dateCreated");
+        expect(res.body).to.have.property("labels");
+        expect(res.body).to.have.property("rewards");
+        expect(res.body).to.have.property("numLabellersRequired");
+        expect(res.body).to.have.property("total_batches");
+        expect(res.body).to.have.property("images");
+
+        // ensure the images are correctly returned
+        expect(res.body.images.length).to.equal(1);
+        expect(res.body.images[0]).to.have.property("batchNumber");
+        expect(res.body.images[0]).to.have.property("_id");
+        expect(res.body.images[0]).to.have.property("value");
+        expect(res.body.images[0]).to.have.property("job");
+        expect(res.body.images[0]).to.have.property("assignedLabels");
+        expect(res.body.images[0].assignedLabels).deep.equal(labels);
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Retrieves the 'assigned' labels for a job - job id invalid", (done: any) => {
+    const wrongId = dummyJobId + "f";
+    // get the job, with the images and labels
+    chai
+      .request(server)
+      .get(endpoint + "/labelled/" + wrongId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send()
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct job structure is returned
+
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Job not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Retrieves the 'assigned' labels for a job - job id incorrect", (done: any) => {
+    const wrongId = dummyJobId.slice(1) + "f";
+    // get the job, with the images and labels
+    chai
+      .request(server)
+      .get(endpoint + "/labelled/" + wrongId)
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send()
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct job structure is returned
+
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Job not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Retrieves the 'assigned' labels for a job - not author", (done: any) => {
+    // get the job, with the images and labels
+
+    // create another user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // try and get the job as this user
+        return chai
+          .request(server)
+          .get(endpoint + "/labelled/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "You are not authorised to view this job's labels"
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - successful", (done: any) => {
+    const labels = ["one", "two"];
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct file structure is returned
+
+        expect(res).to.have.status(200);
+        expect(res).to.have.header("Content-Type", "text/csv; charset=UTF-8");
+
+        expect(res).to.have.property("text");
+
+        const csvContent = res.text.split("\n");
+
+        expect(csvContent).to.have.length(2);
+        expect(csvContent[0]).to.equal(
+          "image_filename,first_label;second_label;other_labels"
+        );
+        expect(csvContent[1]).to.equal(imageData.value + ",one;two");
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - job id invalid", (done: any) => {
+    const labels = ["one", "two"];
+    const wrongId = dummyJobId + "f";
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + wrongId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct file structure is returned
+
+        expect(res).to.have.status(422);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Malformed job id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - job id incorrect", (done: any) => {
+    const labels = ["one", "two"];
+    const wrongId = dummyJobId.slice(1) + "f";
+
+    // label the image
+    chai
+      .request(server)
+      .put("/api/images/" + imageId) // label this image
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send({ labels: labels }) // attach payload
+      .then((res: ChaiHttp.Response) => {
+        // get the job, with the images and labels
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + wrongId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        // ensure the correct file structure is returned
+
+        expect(res).to.have.status(404);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "Job not found with id " + wrongId
+        );
+
+        done();
+      })
+      .catch(done);
+  });
+
+  it("Exports a job - not author", (done: any) => {
+    // get the job, with the images and labels
+
+    // create another user
+    chai
+      .request(server)
+      .post("/api/auth/register")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .send({
+        firstName: "Some",
+        surname: "One",
+        email: "someone@example.com1",
+        password: "someHash",
+      })
+      .then((res: ChaiHttp.Response) => {
+        // try and get the job as this user
+        return chai
+          .request(server)
+          .get(endpoint + "/export/" + dummyJobId)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token)
+          .send();
+      })
+      .then((res: ChaiHttp.Response) => {
+        expect(res).to.have.status(401);
+        expect(res).to.have.header(
+          "Content-Type",
+          "application/json; charset=utf-8"
+        );
+        expect(res).to.be.json;
+
+        expect(res.body).to.have.property(
+          "message",
+          "You are not authorised to export this job"
+        );
+
+        done();
+      })
+      .catch(done);
   });
 });
 
@@ -1112,7 +1450,7 @@ describe("Job utility functions", () => {
       title: "Some title",
       description: "Some description",
       //date created does not need to be inserted because it is not changable by user
-      numLabellersRequired: 2,
+      numLabellersRequired: 1,
       labels: ["A"],
       reward: 1,
     };
@@ -1144,7 +1482,7 @@ describe("Job utility functions", () => {
   });
 
   afterEach(async function () {
-    // remove the image we uploaded
+    // remove the images we uploaded
     rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
   });
 
@@ -1241,6 +1579,254 @@ describe("Job utility functions", () => {
       })
       .then((result: boolean) => {
         expect(result).to.equal(true);
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - it is", (done: any) => {
+    // get the batch id
+    let batchID: string;
+    chai
+      .request(server)
+      .get("/api/batch/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((batches: any) => {
+        batchID = batches.body[0]._id;
+
+        // accept the batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // verify that the job is completed
+        return isJobCompleted(Mongoose.Types.ObjectId(dummyJobId));
+      })
+      .then((status: boolean) => {
+        expect(status).to.be.true;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - wrong job id", (done: any) => {
+    // verify that the job is not completed
+    isJobCompleted(Mongoose.Types.ObjectId("f" + dummyJobId.slice(1)))
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - no batches are labelled", (done: any) => {
+    // verify that the job is not completed
+    isJobCompleted(Mongoose.Types.ObjectId(dummyJobId))
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - some, not all, batches are labelled", (done: any) => {
+    let batchID: string;
+    let jobID: string;
+
+    // add a bunch of images until there is a second batch
+    const jobData: any = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 1,
+      labels: ["A"],
+      reward: 1,
+    };
+
+    // create this job to create the batches
+    chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(jobData)
+      .then((res: any) => {
+        jobID = res.body._id;
+
+        // add the images
+        return chai
+          .request(server)
+          .post("/api/images")
+          .set("Content-Type", "multipart/form-data")
+          .set("Authorization", "Bearer " + userToken)
+          .field("jobID", jobID)
+          .attach("image", "tests/test_image/png.png") // 1
+          .attach("image", "tests/test_image/png.png") // 2
+          .attach("image", "tests/test_image/png.png") // 3
+          .attach("image", "tests/test_image/png.png") // 4
+          .attach("image", "tests/test_image/png.png") // 5
+          .attach("image", "tests/test_image/png.png") // 6
+          .attach("image", "tests/test_image/png.png") // 7
+          .attach("image", "tests/test_image/png.png") // 8
+          .attach("image", "tests/test_image/png.png") // 9
+          .attach("image", "tests/test_image/png.png") // 10
+          .attach("image", "tests/test_image/png.png") // 11
+          .attach("image", "tests/test_image/png.png") // 12
+          .attach("image", "tests/test_image/png.png") // 13
+          .attach("image", "tests/test_image/png.png") // 14
+          .attach("image", "tests/test_image/png.png"); // 15
+      })
+      .then((res: any) => {
+        // get the batch ids
+
+        return chai
+          .request(server)
+          .get("/api/batch/")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((batches: any) => {
+        // get a batch id for our particular job
+        for (let batch of batches.body) {
+          if (String(batch.job) === String(jobID)) {
+            batchID = batch._id;
+          }
+        }
+
+        // accept the first batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // verify that the job is not completed
+        return isJobCompleted(Mongoose.Types.ObjectId(jobID));
+      })
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - the batch is partially labelled", (done: any) => {
+    let batchID: string;
+    let jobID: string;
+
+    // add a bunch of images until there is a second batch
+    const jobData: any = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+    };
+
+    const userdata: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "someone@example.com1",
+      password: "someHash",
+    };
+
+    // create this job to create the batches
+    chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(jobData)
+      .then((res: any) => {
+        jobID = res.body._id;
+
+        // add the images
+        return chai
+          .request(server)
+          .post("/api/images")
+          .set("Content-Type", "multipart/form-data")
+          .set("Authorization", "Bearer " + userToken)
+          .field("jobID", jobID)
+          .attach("image", "tests/test_image/png.png"); // 1
+      })
+      .then((res: any) => {
+        // get the batch ids
+        return chai
+          .request(server)
+          .get("/api/batch/")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((batches: any) => {
+        // get a batch id for our particular job
+        for (let batch of batches.body) {
+          if (String(batch.job) === String(jobID)) {
+            batchID = batch._id;
+          }
+        }
+
+        // accept the first batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // create another user
+        return chai
+          .request(server)
+          .post("/api/auth/register")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .send(userdata);
+      })
+      .then((res: any) => {
+        // accept the job with the new user - but do NOT complete
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token);
+      })
+      .then((res: any) => {
+        // NOW, have a job withn one batch, that requires two labellers
+        // two have accepted the job, but only one has completed the job
+
+        // verify that the job is not completed
+        return isJobCompleted(Mongoose.Types.ObjectId(jobID));
+      })
+      .then((status: boolean) => {
+        expect(status).to.be.false;
         done();
       })
       .catch(done);
