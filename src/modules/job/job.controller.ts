@@ -365,6 +365,64 @@ let JobController = {
       });
   },
 
+  // return a job where each labeller of an image, had chosen the correct label
+  findAvgLabelRatings: async(req: Request, res: Response, next: NextFunction) => {
+    // 1) find the specified job
+	// 2) get the majority labels for each image
+	// 3) calculate the average user rating of each user who submitted that label
+	// 4) return the average rating for each image
+	
+	// make sure we have an id
+	if (!req.params.id) {
+		return res.status(422).send({
+		message: "Job ID not provided",
+		});
+	}
+
+  	// get job
+  	JobModel.findById(req.params.id)
+	.then(async (job: any) => {
+		// double check we have a job
+		if (!job) {
+		return res.status(404).json({
+			message: "Job not found with id " + req.params.id,
+		});
+		}
+
+		// we have the job - check that we are the author of this job
+		if (String(job.author) !== req.body.userId) {
+		// we are not the author - can't view the job labels
+		return res.status(401).json({
+			message: "You are not authorised to view this job's labels",
+		});
+		}
+
+		// we now have a valid request and data
+		// now we need to get the correct labels
+		// the image info
+		job = job.toObject();
+		let correctLabellers = await ItemController.determineCorrectLabllersInJob(job._id);
+
+		//TODO for each of the images go through them and get the average of each user that labelled an image 'correctly'
+
+	})
+	.catch((err: any) => {
+	  if (err.kind === "ObjectId") {
+		// something was wrong with the id - it was malformed
+		return res.status(404).send({
+		  message: "Job not found with id " + req.params.id,
+		});
+	  }
+
+	  // some other error occurred
+	  return res.status(500).send({
+		message: "Error retrieving job with id " + req.params.id,
+	  });
+	});
+
+
+  },
+
   // generate a csv file with the job labels
   exportJob: async (req: Request, res: Response, next: NextFunction) => {
     // make sure we have an id
