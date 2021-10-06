@@ -21,7 +21,7 @@ const LabelledItemModel: any = new schema({
       },
       value: [
         {
-          // the labels assigned to this data item
+          // the labels assigned to this data item by this labeller
           type: String,
           default: "not_labelled",
           required: [true, "Label value not provided"],
