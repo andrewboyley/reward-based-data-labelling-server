@@ -5,7 +5,7 @@ import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
 import UserModel from "../user/user.model";
 import multer from "multer"; // DO NOT REMOVE - typescript things
-import JobController from "../job/job.controller";
+import JobController, { isJobCompleted } from "../job/job.controller";
 
 async function removeUserLabels(
   batch: any,
@@ -382,6 +382,19 @@ let BatchController = {
           .save()
           .then((updatedBatch: any) => {
             // update performed successfully
+
+            // initiate a check to see if the job is now fully complete
+            isJobCompleted(Mongoose.Types.ObjectId(updatedBatch.job)).then(
+              (status: boolean) => {
+                // if the job is now complete, update the user's rating
+                // otherwise, do nothing
+                if (status) {
+                  // todo - update rating
+                }
+              }
+            );
+
+            // return from the finishJob update
             return res.status(204).send();
           })
           .catch((err: any) => {
