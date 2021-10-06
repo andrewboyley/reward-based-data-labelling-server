@@ -1,15 +1,12 @@
-import { Request, Response, NextFunction, response } from "express";
+import { Request, Response, NextFunction } from "express";
 import Mongoose, { Schema } from "mongoose";
 import JobModel from "../job/job.model";
 import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
 import UserModel from "../user/user.model";
-import LabelledItemModel from "../LabelledItem/item.model"
-
 import multer from "multer"; // DO NOT REMOVE - typescript things
+import LabelledItemModel from "../LabelledItem/item.model";
 import JobController, { isJobCompleted } from "../job/job.controller";
-import LabelledItem from "../LabelledItem/item.model";
-import UserController from "../user/user.controller";
 
 async function removeUserLabels(
   batch: any,
@@ -38,9 +35,6 @@ async function removeUserFromBatch(
 
   return result ? true : false;
 }
-
-
-
 
 let BatchController = {
   create: async (batchNumber: number, jobID: Mongoose.Types.ObjectId) => {
@@ -178,7 +172,53 @@ let BatchController = {
         });
       });
   },
+ 
+  calculateRating: async(req: Request, res: Response) =>{
+  
+    const values = ItemController.getLabelValues(req.params.image)
+    var userFrequencies = new Array(values.length);
+    for(var i = 0; i < userFrequencies.length; i++)
+    {
+      userFrequencies[i] = 0;
+    }
 
+    var tempFraction = 0;
+    var finalFraction = 0;
+    LabelledItemModel.find({job: req.params.jobID}).then(async(images: any) =>{
+      if (!images) {
+        return res.status(404).send({
+          message: "images not found with id " + req.params.batch,
+        });
+      }
+      for(var i = 0; i < images.length(); i++){
+        const labeller = images.labeller[i];
+        if (String(labeller.labeller) === String(req.body.userId)) {
+          // we have found us
+          const frequencies = ItemController.getLabelFrequencies(images[i]);
+          for(var j = 0; j <images[i].labels.values.length(); j++);
+          {
+            for(var k = 0; k <frequencies.length(); k++)
+            {
+              var labelCount = 0;
+              if(values[k] = values[j])
+              {
+                userFrequencies[k]+=1;
+                tempFraction += frequencies[k]/frequencies[0];
+                labelCount++;
+              }
+              finalFraction += tempFraction/labelCount;
+            }
+          }
+        }
+      }
+  })
+
+
+  return finalFraction;
+  
+},
+ 
+ 
   determineAvailableBatches: async (
     userId: Mongoose.Types.ObjectId,
     jobId: Mongoose.Types.ObjectId,
@@ -356,54 +396,6 @@ let BatchController = {
       });
   },
 
-  calculateRating: async(req: Request, res: Response) =>{
-  
-    const values = ItemController.getLabelValues(req.params.image)
-    var userFrequencies = new Array(values.length);
-    for(var i = 0; i < userFrequencies.length; i++)
-    {
-      userFrequencies[i] = 0;
-    }
-
-    var tempFraction = 0;
-    var finalFraction = 0;
-    LabelledItemModel.find({job: req.params.jobID}).then(async(images: any) =>{
-      if (!images) {
-        return res.status(404).send({
-          message: "images not found with id " + req.params.batch,
-        });
-      }
-      for(var i = 0; i < images.length(); i++){
-        const labeller = images.labeller[i];
-        if (String(labeller.labeller) === String(req.body.userId)) {
-          // we have found us
-          const frequencies = ItemController.getLabelFrequencies(images[i]);
-          for(var j = 0; j <images[i].labels.values.length(); j++);
-          {
-            for(var k = 0; k <frequencies.length(); k++)
-            {
-              var labelCount = 0;
-              if(values[k] = values[j])
-              {
-                userFrequencies[k]+=1;
-                tempFraction += frequencies[k]/frequencies[0];
-                labelCount++;
-              }
-              finalFraction += tempFraction/labelCount;
-            }
-          }
-        }
-      }
-  })
-
-
-  return finalFraction;
-  
-},
-  
-    
-  
-
   finishJob: async (req: Request, res: Response, next: NextFunction) => {
     // update this particular batch for this user
     // if (!req.params.batch) {
@@ -445,7 +437,6 @@ let BatchController = {
                 // otherwise, do nothing
                 if (status) {
                   // todo - update rating
-                  
                   for(var i =0; i< batch.labellers.size(); i ++)
                   {
                     var jobCount;
@@ -472,9 +463,12 @@ let BatchController = {
                     //   })
 
                     })
-                  }
+
+
+                }
               }
             );
+
             // return from the finishJob update
             return res.status(204).send();
           })
@@ -504,7 +498,6 @@ let BatchController = {
           message: "Error retrieving batch with id " + req.params.batch,
         });
       });
-    }
   },
 
   /*setReward: async (req: Request, res: Response, next: NextFunction) => {
