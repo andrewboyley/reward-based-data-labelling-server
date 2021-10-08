@@ -21,6 +21,42 @@ async function removeUserLabels(
   );
 }
 
+function calculateRating(batch:any, userId:any) 
+  {
+  const values:any  = batch.labels;
+  var userFrequencies = new Array(values.length);
+  for(var i = 0; i < userFrequencies.length; i++)
+  {
+    userFrequencies[i] = 0;
+  }
+
+  var tempFraction = 0;
+  var finalFraction = 0;
+  let images: any =LabelledItemModel.find({job: batch.jobID})
+    for(var i = 0; i < images.length(); i++){
+      const labeller = images.labeller[i];
+      if (String(labeller.labeller) === String(userId)) {
+        // we have found us
+        const frequencies = ItemController.getLabelFrequencies(images[i]);
+        for(var j = 0; j <images[i].labels.values.length(); j++);
+        {
+          for(var k = 0; k <frequencies.length(); k++)
+          {
+            var labelCount = 0;
+            if(values[k] = values[j])
+            {
+              userFrequencies[k]+=1;
+              tempFraction += frequencies[k]/frequencies[0];
+              labelCount++;
+            }
+            finalFraction += tempFraction/labelCount;
+          }
+        }
+      }
+    }
+return finalFraction;
+}
+
 async function removeUserFromBatch(
   batchId: Mongoose.Types.ObjectId,
   userId: Mongoose.Types.ObjectId
@@ -173,50 +209,6 @@ let BatchController = {
       });
   },
  
-  calculateRating: async(req: Request, res: Response) =>{
-  
-    const values = ItemController.getLabelValues(req.params.image)
-    var userFrequencies = new Array(values.length);
-    for(var i = 0; i < userFrequencies.length; i++)
-    {
-      userFrequencies[i] = 0;
-    }
-
-    var tempFraction = 0;
-    var finalFraction = 0;
-    LabelledItemModel.find({job: req.params.jobID}).then(async(images: any) =>{
-      if (!images) {
-        return res.status(404).send({
-          message: "images not found with id " + req.params.batch,
-        });
-      }
-      for(var i = 0; i < images.length(); i++){
-        const labeller = images.labeller[i];
-        if (String(labeller.labeller) === String(req.body.userId)) {
-          // we have found us
-          const frequencies = ItemController.getLabelFrequencies(images[i]);
-          for(var j = 0; j <images[i].labels.values.length(); j++);
-          {
-            for(var k = 0; k <frequencies.length(); k++)
-            {
-              var labelCount = 0;
-              if(values[k] = values[j])
-              {
-                userFrequencies[k]+=1;
-                tempFraction += frequencies[k]/frequencies[0];
-                labelCount++;
-              }
-              finalFraction += tempFraction/labelCount;
-            }
-          }
-        }
-      }
-  })
-
-
-  return finalFraction;
-  
-},
  
  
   determineAvailableBatches: async (
@@ -454,16 +446,23 @@ let BatchController = {
                       }
                     
                       const newJobCount = jobCount +1;
-                    // const newRating = (rating*jobCount + await BatchController.calculateRating(/*stuff*/))/newJobCount;
-
-                    // UserModel.findByIdAndUpdate(batch.labellers[i].userID,
-                    //   {
-                    //     jobCount: 1;
-
-                    //   })
+                      var newRating;
+                      if(jobCount > 1)
+                      {
+                      newRating = (rating*jobCount +  calculateRating(batch, user.userID))/newJobCount;
+                      }
+                      else
+                      {
+                      newRating = (calculateRating(batch, user.userID));
+                      }
+                    UserModel.findByIdAndUpdate(batch.labellers[i].userID,
+                      {
+                        jobCount: newJobCount,
+                        rating: newRating
+                      })
 
                     })
-
+                  }
 
                 }
               }
