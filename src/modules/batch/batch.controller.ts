@@ -625,7 +625,6 @@ let BatchController = {
 	findProgress: async (req: Request, res: Response, next: NextFunction) => {
 		//get the job
 		const job: any = await JobModel.findById(req.params.job);
-		console.log(job);
 		if (job === null)
 			return res.status(404).json({ error: "Job does not exist" });
 
