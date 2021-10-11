@@ -320,7 +320,7 @@ let ItemController = {
 			image = fullImageInfo[index];
 			temp = [];
 			// console.log(image);
-			for (let i = 0; i < numLabellers; i++) {
+			for (let i = 0; i < image.labels.length; i++) {
 				labelInfo = image.labels[i];
 				for (let j = 0; j < labelInfo.value.length; j++) {//labeller may have submitted many labels
 					if (labelInfo.value[j] == correctLabels[index]) {
@@ -338,5 +338,4 @@ let ItemController = {
 };
 
 export default ItemController;
-export { determineSortedImageLabels };
-export { determineCorrectImageLabelsInJob };
+export { determineSortedImageLabels,  determineCorrectImageLabelsInJob};
