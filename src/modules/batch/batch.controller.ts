@@ -21,39 +21,54 @@ async function removeUserLabels(
   );
 }
 
-function calculateRating(batch:any, userId:any) 
+function updateUserRating(batch:any)
+{
+  for(var i =0; i< batch.labellers.length; i ++)
   {
-  const values:any  = batch.labels;
-  var userFrequencies = new Array(values.length);
-  for(var i = 0; i < userFrequencies.length; i++)
-  {
-    userFrequencies[i] = 0;
+    var rating;
+    UserModel.findById(batch.labellers[i].labeller).then(async(user: any) => {
+      // check we actually have the batch
+      rating = user.rating;
+      var newRating;
+      newRating = rating + await calculateRating(batch, user._id);
+    await UserModel.findByIdAndUpdate(user._id,
+      {
+        rating: newRating,
+      })
+
+    })
   }
+}
+
+async function calculateRating(batch:any, userId:any) 
+  {
+ // const values:any  = batch.labels;
 
   var tempFraction = 0;
   var finalFraction = 0;
-  let images: any =LabelledItemModel.find({job: batch.jobID})
-    for(var i = 0; i < images.length(); i++){
-      const labeller = images.labeller[i];
+  let images: any =await LabelledItemModel.find({job: batch.job});
+    for(var i = 0; i < images.length; i++){
+      const labels = images[i].labels;
+      for(let labeller of labels)
+      {
       if (String(labeller.labeller) === String(userId)) {
         // we have found us
         const frequencies = ItemController.getLabelFrequencies(images[i]);
-        for(var j = 0; j <images[i].labels.values.length(); j++);
+        for(var j = 0; j <labeller.value.length; j++)
         {
-          for(var k = 0; k <frequencies.length(); k++)
+          for(var k = 0; k <frequencies.length; k++)
           {
-            var labelCount = 0;
-            if(values[k] = values[j])
+            if(frequencies[k][0] == labeller.value[j])
             {
-              userFrequencies[k]+=1;
-              tempFraction += frequencies[k]/frequencies[0];
-              labelCount++;
+              tempFraction += frequencies[k][1]/frequencies[0][1];
+              break;
             }
-            finalFraction += tempFraction/labelCount;
           }
         }
+        finalFraction += tempFraction/(labeller.value.length);
       }
     }
+  }
 return finalFraction;
 }
 
@@ -428,42 +443,7 @@ let BatchController = {
                 // if the job is now complete, update the user's rating
                 // otherwise, do nothing
                 if (status) {
-                  // todo - update rating
-                  for(var i =0; i< batch.labellers.size(); i ++)
-                  {
-                    var jobCount;
-                    var rating;
-                    UserModel.findById(batch.labellers[i].userID).then((user: any) => {
-                      // check we actually have the batch
-                      if (!user) {
-                        return res
-                          .status(404)
-                          .send({ message: "Batch not found with ID " + req.params.batch });
-                      }
-                      else{
-                        jobCount = user.jobCount;
-                        rating = user.rating;
-                      }
-                    
-                      const newJobCount = jobCount +1;
-                      var newRating;
-                      if(jobCount > 1)
-                      {
-                      newRating = (rating*jobCount +  calculateRating(batch, user.userID))/newJobCount;
-                      }
-                      else
-                      {
-                      newRating = (calculateRating(batch, user.userID));
-                      }
-                    UserModel.findByIdAndUpdate(batch.labellers[i].userID,
-                      {
-                        jobCount: newJobCount,
-                        rating: newRating
-                      })
-
-                    })
-                  }
-
+                 updateUserRating(batch);
                 }
               }
             );

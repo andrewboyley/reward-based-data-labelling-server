@@ -70,7 +70,16 @@ let ItemController = {
       }
     }
   
-    return labelFrequencies;
+    const frequencyArray = Object.keys(labelFrequencies).map(function (key) {
+      return [key, labelFrequencies[key]];
+    });
+  
+    // Sort the array based on the second element
+    frequencyArray.sort(function (first, second) {
+      return second[1] - first[1];
+    });
+
+    return frequencyArray;
   },
 
 
