@@ -37,6 +37,10 @@ const UserSchema: any = new schema({
     type: Number,
     default: 0,
   },
+  rating: {
+    type: Number,
+    default: 0,
+  },
 });
 
 // create model

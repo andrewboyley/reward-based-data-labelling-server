@@ -11,6 +11,9 @@ const LabelledItemModel: any = new schema({
     type: Schema.Types.ObjectId,
     ref: "Job",
   },
+  originalname: {
+    type: String,
+  },
 
   labels: [
     {

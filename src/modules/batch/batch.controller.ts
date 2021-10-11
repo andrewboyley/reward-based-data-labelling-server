@@ -5,6 +5,7 @@ import ItemController from "../LabelledItem/item.controller";
 import BatchModel from "./batch.model";
 import UserModel from "../user/user.model";
 import multer from "multer"; // DO NOT REMOVE - typescript things
+import LabelledItemModel from "../LabelledItem/item.model";
 import JobController, { isJobCompleted } from "../job/job.controller";
 
 async function removeUserLabels(
@@ -18,6 +19,57 @@ async function removeUserLabels(
     batch.batch_number,
     userId
   );
+}
+
+function updateUserRating(batch:any)
+{
+  for(var i =0; i< batch.labellers.length; i ++)
+  {
+    var rating;
+    UserModel.findById(batch.labellers[i].labeller).then(async(user: any) => {
+      // check we actually have the batch
+      rating = user.rating;
+      var newRating;
+      newRating = rating + await calculateRating(batch, user._id);
+    await UserModel.findByIdAndUpdate(user._id,
+      {
+        rating: newRating,
+      })
+
+    })
+  }
+}
+
+async function calculateRating(batch:any, userId:any) 
+  {
+ // const values:any  = batch.labels;
+
+  var tempFraction = 0;
+  var finalFraction = 0;
+  let images: any =await LabelledItemModel.find({job: batch.job});
+    for(var i = 0; i < images.length; i++){
+      const labels = images[i].labels;
+      for(let labeller of labels)
+      {
+      if (String(labeller.labeller) === String(userId)) {
+        // we have found us
+        const frequencies = ItemController.getLabelFrequencies(images[i]);
+        for(var j = 0; j <labeller.value.length; j++)
+        {
+          for(var k = 0; k <frequencies.length; k++)
+          {
+            if(frequencies[k][0] == labeller.value[j])
+            {
+              tempFraction += frequencies[k][1]/frequencies[0][1];
+              break;
+            }
+          }
+        }
+        finalFraction += tempFraction/(labeller.value.length);
+      }
+    }
+  }
+return finalFraction;
 }
 
 async function removeUserFromBatch(
@@ -171,7 +223,9 @@ let BatchController = {
         });
       });
   },
-
+ 
+ 
+ 
   determineAvailableBatches: async (
     userId: Mongoose.Types.ObjectId,
     jobId: Mongoose.Types.ObjectId,
@@ -389,7 +443,7 @@ let BatchController = {
                 // if the job is now complete, update the user's rating
                 // otherwise, do nothing
                 if (status) {
-                  // todo - update rating
+                 updateUserRating(batch);
                 }
               }
             );

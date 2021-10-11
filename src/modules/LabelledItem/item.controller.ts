@@ -46,19 +46,64 @@ function determineSortedImageLabels(image: any) {
   });
 }
 
-  //returns an array of just the correct labels for each image
-function determineCorrectImageLabelsInJob(jobId: Mongoose.Types.ObjectId,images: any) {
+//returns an array of just the correct labels for each image
+function determineCorrectImageLabelsInJob(
+  jobId: Mongoose.Types.ObjectId,
+  images: any
+) {
+  let correctLabels = new Array<string>(images.length);
+  for (let i = 0; i < images.length; i++) {
+    correctLabels[i] = images[i].assignedLabels[0];
+  }
 
-	let correctLabels = new Array<string>(images.length);
-	for (let i = 0; i < images.length; i++) {
-		correctLabels[i] = images[i].assignedLabels[0];
-	}
-
-	return correctLabels;
-};
-
+  return correctLabels;
+}
 
 let ItemController = {
+  getLabelFrequencies(image: any) {
+    // need to order the labels by frequency
+    let labelFrequencies: any = {};
+
+    for (let label of image.labels) {
+      // looping through all the labels
+      // increment a counter for the relevant value
+      const values = label.value;
+
+      for (let value of values) {
+        if (value in labelFrequencies) {
+          // we already have this label
+          labelFrequencies[value]++;
+        } else {
+          // add this label to the dict
+          labelFrequencies[value] = 1;
+        }
+      }
+    }
+
+    const frequencyArray = Object.keys(labelFrequencies).map(function (key) {
+      return [key, labelFrequencies[key]];
+    });
+
+    // Sort the array based on the second element
+    frequencyArray.sort(function (first, second) {
+      return second[1] - first[1];
+    });
+
+    return frequencyArray;
+  },
+
+  getLabelValues(image: any) {
+    // need to order the labels by frequency
+    let labelValues: any = {};
+
+    for (let label of image.labels) {
+      // looping through all the labels
+      // increment a counter for the relevant value
+      labelValues.addItem(label.value);
+    }
+
+    return labelValues;
+  },
   // add all the pictures, and create the appropriate batches
   addItem: async (req: Request, res: Response, next: NextFunction) => {
     // get job Id from request body
@@ -243,8 +288,6 @@ let ItemController = {
     return images;
   },
 
-  
-
   //returns an array only with the labellers who chose the majority label for each image
   determineCorrectLabllersInJob: async (jobId: Mongoose.Types.ObjectId) => {
 	let images = await ItemController.determineImageLabelsInJob(jobId);
@@ -296,4 +339,3 @@ let ItemController = {
 export default ItemController;
 export { determineSortedImageLabels };
 export { determineCorrectImageLabelsInJob };
-
