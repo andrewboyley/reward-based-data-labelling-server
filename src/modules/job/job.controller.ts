@@ -369,8 +369,9 @@ let JobController = {
   findAvgLabelRatings: async(req: Request, res: Response, next: NextFunction) => {
     // 1) find the specified job
 	// 2) get the majority labels for each image
-	// 3) calculate the average user rating of each user who submitted that label
-	// 4) return the average rating for each image
+	// 3) get the users that labelled each image correctly
+	// 4) calculate the average user rating of each user who submitted that label
+	// 5) return the average rating for each image
 	
 	// make sure we have an id
 	if (!req.params.id) {
@@ -392,9 +393,9 @@ let JobController = {
 		// we have the job - check that we are the author of this job
 		if (String(job.author) !== req.body.userId) {
 		// we are not the author - can't view the job labels
-		return res.status(401).json({
-			message: "You are not authorised to view this job's labels",
-		});
+			return res.status(401).json({
+				message: "You are not authorised to view this job's labels",
+			});
 		}
 
 		// we now have a valid request and data
@@ -402,6 +403,25 @@ let JobController = {
 		// the image info
 		job = job.toObject();
 		let correctLabellers = await ItemController.determineCorrectLabllersInJob(job._id);
+
+		if(correctLabellers == null){
+			return res.status(404).json({
+				message: "Problem getting correct labellers",
+			});
+		}
+
+		let temp = [];
+		for (let index = 0; index < correctLabellers.length; index++) {
+			temp = correctLabellers[index];
+
+			for (let i = 0; i < temp.length; i++) {
+				console.log(temp[i]);
+				
+			}
+
+			console.log("\n");
+			
+		}
 
 		//TODO for each of the images go through them and get the average of each user that labelled an image 'correctly'
 

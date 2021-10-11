@@ -278,7 +278,7 @@ let ItemController = {
 		// console.log(image);
 		for (let i = 0; i < numLabellers; i++) {
 			labelInfo = image.labels[i];
-			for (let j = 0; j < labelInfo.value.length; j++) {
+			for (let j = 0; j < labelInfo.value.length; j++) {//labeller may have submitted many labels
 				if(labelInfo.value[j] == correctLabels[index]){
 					temp.push(labelInfo.labeller);
 				}
