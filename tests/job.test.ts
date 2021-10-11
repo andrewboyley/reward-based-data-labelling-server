@@ -635,9 +635,9 @@ describe("GET /job", () => {
 
 				expect(csvContent).to.have.length(2);
 				expect(csvContent[0]).to.equal(
-					"image_filename,first_label;second_label;other_labels"
+					"image_filename,original_filename,first_label;second_label;other_labels"
 				);
-				expect(csvContent[1]).to.equal(imageData.originalname + ",one;two");
+				expect(csvContent[1]).to.equal(imageData.value + "," + imageData.originalname + ",one;two");
 
 				done();
 			})
