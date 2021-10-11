@@ -3,12 +3,14 @@ import chaiHttp from "chai-http";
 import Mongoose from "mongoose";
 import rimraf from "rimraf";
 import { mock } from "sinon";
-const VerifyToken = require("../src/modules/auth/VerifyToken");
-
 import dbHandler from "../src/db-handler";
-import { checkIfBatchIsAvailable } from "../src/modules/job/job.controller";
-import { determineSortedImageLabels } from "../src/modules/LabelledItem/item.controller";
+import {
+  checkIfBatchIsAvailable,
+  countCompletedJobsForUser,
+  isJobCompleted,
+} from "../src/modules/job/job.controller";
 import server from "../src/server";
+const VerifyToken = require("../src/modules/auth/VerifyToken");
 
 const expect = chai.expect;
 
@@ -1449,7 +1451,7 @@ describe("Job utility functions", () => {
       title: "Some title",
       description: "Some description",
       //date created does not need to be inserted because it is not changable by user
-      numLabellersRequired: 2,
+      numLabellersRequired: 1,
       labels: ["A"],
       reward: 1,
     };
@@ -1481,7 +1483,7 @@ describe("Job utility functions", () => {
   });
 
   afterEach(async function () {
-    // remove the image we uploaded
+    // remove the images we uploaded
     rimraf.sync(__dirname + "/../uploads/jobs/" + dummyJobId);
   });
 
@@ -1578,6 +1580,387 @@ describe("Job utility functions", () => {
       })
       .then((result: boolean) => {
         expect(result).to.equal(true);
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - it is", (done: any) => {
+    // get the batch id
+    let batchID: string;
+    chai
+      .request(server)
+      .get("/api/batch/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((batches: any) => {
+        batchID = batches.body[0]._id;
+
+        // accept the batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // verify that the job is completed
+        return isJobCompleted(Mongoose.Types.ObjectId(dummyJobId));
+      })
+      .then((status: boolean) => {
+        expect(status).to.be.true;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - wrong job id", (done: any) => {
+    // verify that the job is not completed
+    isJobCompleted(Mongoose.Types.ObjectId("f" + dummyJobId.slice(1)))
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - no batches are labelled", (done: any) => {
+    // verify that the job is not completed
+    isJobCompleted(Mongoose.Types.ObjectId(dummyJobId))
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - some, not all, batches are labelled", (done: any) => {
+    let batchID: string;
+    let jobID: string;
+
+    // add a bunch of images until there is a second batch
+    const jobData: any = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 1,
+      labels: ["A"],
+      reward: 1,
+    };
+
+    // create this job to create the batches
+    chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(jobData)
+      .then((res: any) => {
+        jobID = res.body._id;
+
+        // add the images
+        return chai
+          .request(server)
+          .post("/api/images")
+          .set("Content-Type", "multipart/form-data")
+          .set("Authorization", "Bearer " + userToken)
+          .field("jobID", jobID)
+          .attach("image", "tests/test_image/png.png") // 1
+          .attach("image", "tests/test_image/png.png") // 2
+          .attach("image", "tests/test_image/png.png") // 3
+          .attach("image", "tests/test_image/png.png") // 4
+          .attach("image", "tests/test_image/png.png") // 5
+          .attach("image", "tests/test_image/png.png") // 6
+          .attach("image", "tests/test_image/png.png") // 7
+          .attach("image", "tests/test_image/png.png") // 8
+          .attach("image", "tests/test_image/png.png") // 9
+          .attach("image", "tests/test_image/png.png") // 10
+          .attach("image", "tests/test_image/png.png") // 11
+          .attach("image", "tests/test_image/png.png") // 12
+          .attach("image", "tests/test_image/png.png") // 13
+          .attach("image", "tests/test_image/png.png") // 14
+          .attach("image", "tests/test_image/png.png"); // 15
+      })
+      .then((res: any) => {
+        // get the batch ids
+
+        return chai
+          .request(server)
+          .get("/api/batch/")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((batches: any) => {
+        // get a batch id for our particular job
+        for (let batch of batches.body) {
+          if (String(batch.job) === String(jobID)) {
+            batchID = batch._id;
+          }
+        }
+
+        // accept the first batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // verify that the job is not completed
+        return isJobCompleted(Mongoose.Types.ObjectId(jobID));
+      })
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("checks if job is completed - the batch is partially labelled", (done: any) => {
+    let batchID: string;
+    let jobID: string;
+
+    // add a bunch of images until there is a second batch
+    const jobData: any = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+    };
+
+    const userdata: any = {
+      firstName: "Some",
+      surname: "One",
+      email: "someone@example.com1",
+      password: "someHash",
+    };
+
+    // create this job to create the batches
+    chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(jobData)
+      .then((res: any) => {
+        jobID = res.body._id;
+
+        // add the images
+        return chai
+          .request(server)
+          .post("/api/images")
+          .set("Content-Type", "multipart/form-data")
+          .set("Authorization", "Bearer " + userToken)
+          .field("jobID", jobID)
+          .attach("image", "tests/test_image/png.png"); // 1
+      })
+      .then((res: any) => {
+        // get the batch ids
+        return chai
+          .request(server)
+          .get("/api/batch/")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((batches: any) => {
+        // get a batch id for our particular job
+        for (let batch of batches.body) {
+          if (String(batch.job) === String(jobID)) {
+            batchID = batch._id;
+          }
+        }
+
+        // accept the first batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // create another user
+        return chai
+          .request(server)
+          .post("/api/auth/register")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .send(userdata);
+      })
+      .then((res: any) => {
+        // accept the job with the new user - but do NOT complete
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + res.body.token);
+      })
+      .then((res: any) => {
+        // NOW, have a job withn one batch, that requires two labellers
+        // two have accepted the job, but only one has completed the job
+
+        // verify that the job is not completed
+        return isJobCompleted(Mongoose.Types.ObjectId(jobID));
+      })
+      .then((status: boolean) => {
+        expect(status).to.be.false;
+        done();
+      })
+      .catch(done);
+  });
+
+  it("count a labeller's completed jobs - correct", (done: any) => {
+    // get the batch id
+    let batchID: string;
+    chai
+      .request(server)
+      .get("/api/batch/")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((batches: any) => {
+        batchID = batches.body[0]._id;
+
+        // accept the batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // verify that the count is correct
+        return countCompletedJobsForUser(Mongoose.Types.ObjectId(userId));
+      })
+      .then((count: number) => {
+        expect(count).to.equal(1);
+        done();
+      })
+      .catch(done);
+  });
+
+  it("count a labeller's completed jobs - when some are incomplete", (done: any) => {
+    // get the batch id
+    let dummyBatchID: string;
+    let newBatchId: string;
+    let newJobID: string;
+
+    // this new job will have two labellers and one batch - accept and complete the batch for one user
+    // means the job will still be incomplete
+    const newJobData: any = {
+      title: "Some title",
+      description: "Some description",
+      //date created does not need to be inserted because it is not changable by user
+      numLabellersRequired: 2,
+      labels: ["A"],
+      reward: 1,
+    };
+
+    // create a new job, which we will not complete
+    chai
+      .request(server)
+      .post("/api/job")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .send(newJobData)
+      .then((res: any) => {
+        newJobID = res.body._id;
+
+        // upload an image to the job we have just created - creates a batch
+        return chai
+          .request(server)
+          .post("/api/images")
+          .set("Content-Type", "multipart/form-data")
+          .set("Authorization", "Bearer " + userToken)
+          .field("jobID", dummyJobId)
+          .attach("image", "tests/test_image/png.png");
+      })
+      .then((res: any) => {
+        // get batch IDs for both the jobs
+        return chai
+          .request(server)
+          .get("/api/batch/")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((batches: any) => {
+        // find batches for each job
+        for (let batch of batches.body) {
+          if (String(batch.job) === String(dummyJobId)) {
+            dummyBatchID = batch._id;
+          } else if (String(batch.job) === String(newJobID)) {
+            newBatchId = batch._id;
+          }
+        }
+
+        // accept the dummy batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + dummyBatchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the dummy batch
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + dummyBatchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // accept the new batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + dummyBatchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // complete the new batch - two labellers required, so the job won't be complete
+        return chai
+          .request(server)
+          .put("/api/batch/complete/" + newJobID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((res: any) => {
+        // verify that the count is correct
+        return countCompletedJobsForUser(Mongoose.Types.ObjectId(userId));
+      })
+      .then((count: number) => {
+        expect(count).to.equal(1);
         done();
       })
       .catch(done);

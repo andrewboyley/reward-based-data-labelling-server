@@ -39,6 +39,75 @@ async function checkIfBatchIsAvailable(
   return batches !== null && batches.length !== 0;
 }
 
+async function isJobCompleted(
+  jobId: Mongoose.Types.ObjectId
+): Promise<boolean> {
+  // we need to check that ((num batches) x (num labellers required)) batches are "completed"
+
+  // get the number of batches and the number of labellers required for this job
+  const job: any = await JobModel.findById(jobId);
+
+  // job not found
+  if (!job) return false;
+
+  // job found - determine desired "completed" number
+  const desiredNumber: number = job.total_batches * job.numLabellersRequired;
+
+  // count the number of completed batches for this job
+  const batches: any = await BatchModel.find({
+    job: jobId,
+    labellers: {
+      $elemMatch: {
+        completed: true,
+      },
+    },
+  });
+
+  // no batches found
+  if (!batches || batches.length === 0) return false;
+
+  // batches found - loop through and count
+  let actualNumber: number = 0;
+  for (let batch of batches) {
+    // loop through all the labellers for this batch
+    for (let labeller of batch.labellers) {
+      // if this is "completed", increment the counter
+      if (Boolean(labeller.completed)) {
+        actualNumber++;
+      }
+    }
+  }
+
+  // have now counted the number of batches that have actually been labelled
+  // check if this is the same as the desired number
+  return actualNumber === desiredNumber;
+}
+
+async function countCompletedJobsForUser(
+  userId: Mongoose.Types.ObjectId
+): Promise<number> {
+  // we need to get all the jobs that have a batch labelled by the user
+  // count how many of these jobs are completed
+
+  // get the job IDs that have a batch completely labelled by the current user
+  const distinctJobs = await BatchModel.distinct("job", {
+    labellers: {
+      $elemMatch: { labeller: userId, completed: true },
+    },
+  });
+
+  // for these jobs, count how many are completed
+  let counter: number = 0;
+  for (let job of distinctJobs) {
+    if (await isJobCompleted(Mongoose.Types.ObjectId(job))) {
+      // if the job is completed, increment the counter
+      counter++;
+    }
+  }
+
+  return counter;
+}
+
 let JobController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     // Validate request
@@ -234,6 +303,42 @@ let JobController = {
       });
   },
 
+  // find completed jobs - any job that I have finished labelling a batch in
+  findCompleted: async (req: Request, res: Response, next: NextFunction) => {
+    // extract the user id from the request
+    const userObjectId = new Mongoose.Types.ObjectId(req.body.userId);
+
+    // find all batches where user is a labeller AND is completed
+    BatchModel.distinct("job", {
+      labellers: {
+        $elemMatch: { labeller: req.body.userId, completed: true },
+      },
+    })
+      .then(async (jobIDs: any) => {
+        // all these jobs are completed
+        // fetch these jobs and return then
+
+        const jobs = [];
+
+        // loop through the batches which the user is currently labelling
+        for (let jobID of jobIDs) {
+          // get the corresponding job
+          let job: any = await JobModel.findById(jobID);
+
+          // check the job is valid
+          if (job) {
+            jobs.push(job);
+          }
+        }
+
+        // return all the accepted jobs, with the batch id that triggered the 'accept'
+        res.status(200).json(jobs);
+      })
+      .catch((err: any) => {
+        return res.status(400).json({ error: "Something went wrong" });
+      });
+  },
+
   // return a single job, with all the images, with their labels
   findJobLabels: async (req: Request, res: Response, next: NextFunction) => {
     // 1) find the specified job
@@ -280,6 +385,66 @@ let JobController = {
               "An error occurred while processing the labels for this job",
           });
         }
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
+
+        // some other error occurred
+        return res.status(500).send({
+          message: "Error retrieving job with id " + req.params.id,
+        });
+      });
+  },
+
+  // return a job where each labeller of an image, had chosen the correct label
+  findAvgLabelRatings: async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    // 1) find the specified job
+    // 2) get the majority labels for each image
+    // 3) calculate the average user rating of each user who submitted that label
+    // 4) return the average rating for each image
+
+    // make sure we have an id
+    if (!req.params.id) {
+      return res.status(422).send({
+        message: "Job ID not provided",
+      });
+    }
+
+    // get job
+    JobModel.findById(req.params.id)
+      .then(async (job: any) => {
+        // double check we have a job
+        if (!job) {
+          return res.status(404).json({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
+
+        // we have the job - check that we are the author of this job
+        if (String(job.author) !== req.body.userId) {
+          // we are not the author - can't view the job labels
+          return res.status(401).json({
+            message: "You are not authorised to view this job's labels",
+          });
+        }
+
+        // we now have a valid request and data
+        // now we need to get the correct labels
+        // the image info
+        job = job.toObject();
+        let correctLabellers =
+          await ItemController.determineCorrectLabllersInJob(job._id);
+
+        //TODO for each of the images go through them and get the average of each user that labelled an image 'correctly'
       })
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
@@ -564,4 +729,4 @@ let JobController = {
 };
 
 export default JobController;
-export { checkIfBatchIsAvailable };
+export { checkIfBatchIsAvailable, isJobCompleted, countCompletedJobsForUser };
