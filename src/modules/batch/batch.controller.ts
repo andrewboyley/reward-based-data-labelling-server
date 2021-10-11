@@ -14,6 +14,7 @@ async function removeUserLabels(
 ): Promise<boolean> {
   // remove the image labels assigned by this user to this batch
   // return a flag indicating success
+  console.log("harro");
   return await ItemController.removeUserLabels(
     batch.job,
     batch.batch_number,
@@ -769,4 +770,4 @@ const intervalMinutes = 15;
 setInterval(manageExpiry, intervalMinutes * 60 * 1000); // convert to milliseconds
 
 export default BatchController;
-export { manageExpiry };
+export { manageExpiry , removeUserLabels, updateUserRating,calculateRating};
