@@ -8,34 +8,33 @@ const VerifyToken = require("../auth/VerifyToken");
 // set up multer for storing uploaded files
 
 var storage = multer.diskStorage({
-  // define where to store the image
-  destination: (req: Request, file: Express.Multer.File, cb) => {
-    // specify the directory to use/create
-    let fileDirectory = "uploads/jobs/" + req.body.jobID;
+	// define where to store the image
+	destination: (req: Request, file: Express.Multer.File, cb) => {
+		// specify the directory to use/create
+		let fileDirectory = "uploads/jobs/" + req.body.jobID;
 
-    // create the directory if it doesn't already exist
-    if (!fs.existsSync(fileDirectory)) {
-      fs.mkdirSync(fileDirectory);
-    }
+		// create the directory if it doesn't already exist
+		if (!fs.existsSync(fileDirectory)) {
+			fs.mkdirSync(fileDirectory);
+		}
 
-    // move to the next stage of the storage process
-    cb(null, fileDirectory);
-  },
+		// move to the next stage of the storage process
+		cb(null, fileDirectory);
+	},
 
-  // determine the image's filename
-  filename: (req: Request, file: Express.Multer.File, cb) => {
-    var filename: string = "";
+	// determine the image's filename
+	filename: (req: Request, file: Express.Multer.File, cb) => {
+		var filename: string = "";
+		// generate a random, unique name for this file, and assign it an appropriate extension
+		if (file.mimetype == "image/jpeg") {
+			filename = nanoid(36) + ".jpg";
+		} else if (file.mimetype == "image/png") {
+			filename = nanoid(36) + ".png";
+		}
 
-    // generate a random, unique name for this file, and assign it an appropriate extension
-    if (file.mimetype == "image/jpeg") {
-      filename = nanoid(36) + ".jpg";
-    } else if (file.mimetype == "image/png") {
-      filename = nanoid(36) + ".png";
-    }
-
-    // move on to the next stage
-    cb(null, filename);
-  },
+		// move on to the next stage
+		cb(null, filename);
+	},
 });
 
 var upload = multer({ storage: storage });

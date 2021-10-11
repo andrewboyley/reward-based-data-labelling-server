@@ -46,6 +46,19 @@ function determineSortedImageLabels(image: any) {
   });
 }
 
+//returns an array of just the correct labels for each image
+function determineCorrectImageLabelsInJob(
+  jobId: Mongoose.Types.ObjectId,
+  images: any
+) {
+  let correctLabels = new Array<string>(images.length);
+  for (let i = 0; i < images.length; i++) {
+    correctLabels[i] = images[i].assignedLabels[0];
+  }
+
+  return correctLabels;
+}
+
 let ItemController = {
   getLabelFrequencies(image: any) {
     // need to order the labels by frequency
@@ -274,7 +287,53 @@ let ItemController = {
 
     return images;
   },
+
+  //returns an array only with the labellers who chose the majority label for each image
+  determineCorrectLabllersInJob: async (jobId: Mongoose.Types.ObjectId) => {
+    let images = await ItemController.determineImageLabelsInJob(jobId);
+
+    let correctLabels = determineCorrectImageLabelsInJob(jobId, images);
+
+    // get all the images
+    let fullImageInfo: any = await LabelledItemModel.find({
+      job: jobId,
+    });
+
+    // something went wrong and couldn't get images
+    if (!fullImageInfo) {
+      return null;
+    }
+
+    //We get the number of labellers required for this job
+    let fullJob: any = await JobModel.find({
+      _id: jobId,
+    });
+
+    let numLabellers = fullJob[0].numLabellersRequired;
+    let image, labelInfo;
+    let correctLabellers = [];
+    let temp = [];
+
+    for (let index = 0; index < fullImageInfo.length; index++) {
+      image = fullImageInfo[index];
+      temp = [];
+      // console.log(image);
+      for (let i = 0; i < numLabellers; i++) {
+        labelInfo = image.labels[i];
+        for (let j = 0; j < labelInfo.value.length; j++) {
+          if (labelInfo.value[j] == correctLabels[index]) {
+            temp.push(labelInfo.labeller);
+          }
+        }
+      }
+
+      correctLabellers.push(temp);
+    }
+
+    return correctLabellers;
+  },
 };
 
 export default ItemController;
 export { determineSortedImageLabels };
+export { determineCorrectImageLabelsInJob };

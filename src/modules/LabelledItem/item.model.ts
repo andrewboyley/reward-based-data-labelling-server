@@ -11,6 +11,9 @@ const LabelledItemModel: any = new schema({
     type: Schema.Types.ObjectId,
     ref: "Job",
   },
+  originalname: {
+    type: String,
+  },
 
   labels: [
     {
@@ -21,7 +24,7 @@ const LabelledItemModel: any = new schema({
       },
       value: [
         {
-          // the labels assigned to this data item by this labeller
+          // the labels assigned to this data item
           type: String,
           default: "not_labelled",
           required: [true, "Label value not provided"],
