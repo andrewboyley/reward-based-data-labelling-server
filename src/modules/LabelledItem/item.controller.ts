@@ -8,7 +8,6 @@ import BatchModel from "../batch/batch.model";
 
 const desiredBatchSize = 10;
 
-
 function determineSortedImageLabels(image: any) {
   // need to order the labels by frequency
   let labelFrequencies: any = {};
@@ -47,18 +46,16 @@ function determineSortedImageLabels(image: any) {
   });
 }
 
-
-
 let ItemController = {
-   getLabelFrequencies(image: any) {
+  getLabelFrequencies(image: any) {
     // need to order the labels by frequency
     let labelFrequencies: any = {};
-  
+
     for (let label of image.labels) {
       // looping through all the labels
       // increment a counter for the relevant value
       const values = label.value;
-  
+
       for (let value of values) {
         if (value in labelFrequencies) {
           // we already have this label
@@ -69,11 +66,11 @@ let ItemController = {
         }
       }
     }
-  
+
     const frequencyArray = Object.keys(labelFrequencies).map(function (key) {
       return [key, labelFrequencies[key]];
     });
-  
+
     // Sort the array based on the second element
     frequencyArray.sort(function (first, second) {
       return second[1] - first[1];
@@ -82,19 +79,16 @@ let ItemController = {
     return frequencyArray;
   },
 
-
-
   getLabelValues(image: any) {
     // need to order the labels by frequency
     let labelValues: any = {};
-  
+
     for (let label of image.labels) {
       // looping through all the labels
       // increment a counter for the relevant value
       labelValues.addItem(label.value);
-      
     }
-  
+
     return labelValues;
   },
   // add all the pictures, and create the appropriate batches
