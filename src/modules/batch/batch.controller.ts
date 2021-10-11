@@ -224,8 +224,6 @@ let BatchController = {
       });
   },
  
- 
- 
   determineAvailableBatches: async (
     userId: Mongoose.Types.ObjectId,
     jobId: Mongoose.Types.ObjectId,
@@ -542,6 +540,39 @@ let BatchController = {
 				});
 			});
 	},*/
+
+  findBatchReward: async (req: Request, res: Response, next: NextFunction) => {
+    //find the reward amount
+    JobModel.findById(req.params.id)
+    .then((job: any) => {
+      if (!job) {
+        return res
+          .status(404)
+          .send({ message: "Job not found with ID " + req.params.id });
+      }
+      console.log(job);
+
+      let reward =
+        job.rewards / job.numLabellersRequired / job.total_batches;
+
+      console.log(reward);
+      // return the reward amount
+      return res.status(200).json(reward);
+    })
+    .catch((err: any) => {
+      if (err.kind === "ObjectId") {
+        // something was wrong with the id - it was malformed
+        return res.status(422).send({
+          message: "Malformed Job id " + req.params.id,
+        });
+      }
+
+      // some other error occurred
+      return res.status(500).send({
+        message: "#####Error retrieving job with id " + req.params.id,
+      });
+    });
+  },
 
   updateReward: async (req: Request, res: Response, next: NextFunction) => {
     // update the amount of reward the user has available
