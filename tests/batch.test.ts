@@ -761,7 +761,7 @@ describe("Find next batch", () => {
       .catch(done);
   });
 
-  it("Returns 400 if finding next batch went wrong", (done: any) => {
+  it("Returns 404 if finding next batch went wrong", (done: any) => {
     chai
       .request(server)
       .get(endpoint + "/next/" + "4edd40c86762e0fb12000003")
@@ -773,6 +773,7 @@ describe("Find next batch", () => {
       })
       .catch(done);
   });
+  
 });
 
 describe("Batch expiry", () => {
