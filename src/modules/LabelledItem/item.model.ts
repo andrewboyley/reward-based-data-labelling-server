@@ -5,45 +5,45 @@ const schema: any = mongoose.Schema;
 
 // create user schema
 const LabelledItemModel: any = new schema({
-	// need to define attributes
-	job: {
-		// id of the job to which this data item belongs
-		type: Schema.Types.ObjectId,
-		ref: "Job",
-	},
-	originalname: {
-		type: String
-	},
+  // need to define attributes
+  job: {
+    // id of the job to which this data item belongs
+    type: Schema.Types.ObjectId,
+    ref: "Job",
+  },
+  originalname: {
+    type: String,
+  },
 
-	labels: [
-		{
-			labeller: {
-				type: Schema.Types.ObjectId,
-				ref: "User",
-				required: [true, "Labeller not provided"],
-			},
-			value: [
-				{
-					// the labels assigned to this data item
-					type: String,
-					default: "not_labelled",
-					required: [true, "Label value not provided"],
-				},
-			],
-		},
-	],
+  labels: [
+    {
+      labeller: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: [true, "Labeller not provided"],
+      },
+      value: [
+        {
+          // the labels assigned to this data item
+          type: String,
+          default: "not_labelled",
+          required: [true, "Label value not provided"],
+        },
+      ],
+    },
+  ],
 
-	// is the actual data value
-	// for images, path to image
-	value: {
-		type: String,
-		required: [true, "Value not provided"],
-	},
+  // is the actual data value
+  // for images, path to image
+  value: {
+    type: String,
+    required: [true, "Value not provided"],
+  },
 
-	batchNumber: {
-		type: Number,
-		default: -1,
-	},
+  batchNumber: {
+    type: Number,
+    default: -1,
+  },
 });
 
 // create model
