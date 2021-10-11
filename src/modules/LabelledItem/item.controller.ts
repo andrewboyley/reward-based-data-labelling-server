@@ -337,5 +337,4 @@ let ItemController = {
 };
 
 export default ItemController;
-export { determineSortedImageLabels };
-export { determineCorrectImageLabelsInJob };
+export { determineSortedImageLabels,  determineCorrectImageLabelsInJob};

@@ -3,7 +3,10 @@ import Mongoose, { Schema } from "mongoose";
 import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
 import ItemController from "../LabelledItem/item.controller";
+import userController from "../user/user.controller"
 import JobModel from "./job.model";
+import UserModel from "../user/user.model";
+
 import fs from "fs";
 import path from "path";
 
@@ -401,7 +404,7 @@ let JobController = {
       });
   },
 
-  // return a job where each labeller of an image, had chosen the correct label
+  // return an array of with the rating for each image
   findAvgLabelRatings: async (
     req: Request,
     res: Response,
@@ -421,8 +424,7 @@ let JobController = {
 	}
 
   	// get job
-  	JobModel.findById(req.params.id)
-	.then(async (job: any) => {
+  	JobModel.findById(req.params.id).then(async (job: any) => {
 		// double check we have a job
 		if (!job) {
 		return res.status(404).json({
@@ -441,29 +443,37 @@ let JobController = {
 		// we now have a valid request and data
 		// now we need to get the correct labels
 		// the image info
-		job = job.toObject();
-		let correctLabellers = await ItemController.determineCorrectLabllersInJob(job._id);
+		let correctLabellersArr = await ItemController.determineCorrectLabllersInJob(job._id);
 
-		if(correctLabellers == null){
+		if(correctLabellersArr == null){
 			return res.status(404).json({
 				message: "Problem getting correct labellers",
 			});
 		}
 
-		let temp = [];
-		for (let index = 0; index < correctLabellers.length; index++) {
-			temp = correctLabellers[index];
+		let avgRatings= new Array<number>(correctLabellersArr.length);
+		for (let index = 0; index < correctLabellersArr.length; index++) {
+			avgRatings[index] = 0;
+		}
+		let correctLabellers = [];
+		let userRating;
+		let rating;
+		for (let index = 0; index < correctLabellersArr.length; index++) {
+			correctLabellers = correctLabellersArr[index];
 
-			for (let i = 0; i < temp.length; i++) {
-				console.log(temp[i]);
-				
+			for (let i = 0; i < correctLabellers.length; i++) {
+				await UserModel.findById(Mongoose.Types.ObjectId(correctLabellers[i]))
+				.then((response: any): any => {
+					rating = response.rating;
+					avgRatings[index]+= rating;
+
+				})
 			}
-
-			console.log("\n");
+			avgRatings[index] = avgRatings[index]/correctLabellers.length; 
 			
 		}
-
-		//TODO for each of the images go through them and get the average of each user that labelled an image 'correctly'
+		res.status(200).json(avgRatings);
+		
 
 	})
 	.catch((err: any) => {
@@ -474,59 +484,12 @@ let JobController = {
 		});
 	  }
 
-	  // some other error occurred
+	//   some other error occurred
 	  return res.status(500).send({
 		message: "Error retrieving job with id " + req.params.id,
 	  });
 	});
 
-    // make sure we have an id
-    if (!req.params.id) {
-      return res.status(422).send({
-        message: "Job ID not provided",
-      });
-    }
-
-    // get job
-    JobModel.findById(req.params.id)
-      .then(async (job: any) => {
-        // double check we have a job
-        if (!job) {
-          return res.status(404).json({
-            message: "Job not found with id " + req.params.id,
-          });
-        }
-
-        // we have the job - check that we are the author of this job
-        if (String(job.author) !== req.body.userId) {
-          // we are not the author - can't view the job labels
-          return res.status(401).json({
-            message: "You are not authorised to view this job's labels",
-          });
-        }
-
-        // we now have a valid request and data
-        // now we need to get the correct labels
-        // the image info
-        job = job.toObject();
-        let correctLabellers =
-          await ItemController.determineCorrectLabllersInJob(job._id);
-
-        //TODO for each of the images go through them and get the average of each user that labelled an image 'correctly'
-      })
-      .catch((err: any) => {
-        if (err.kind === "ObjectId") {
-          // something was wrong with the id - it was malformed
-          return res.status(404).send({
-            message: "Job not found with id " + req.params.id,
-          });
-        }
-
-        // some other error occurred
-        return res.status(500).send({
-          message: "Error retrieving job with id " + req.params.id,
-        });
-      });
   },
 
   // generate a csv file with the job labels

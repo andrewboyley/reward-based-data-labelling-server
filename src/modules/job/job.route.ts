@@ -11,7 +11,7 @@ router.get("/authored", VerifyToken, JobController.findAuthored); // get jobs th
 router.get("/accepted", VerifyToken, JobController.findAccepted); // get jobs that user accepted
 router.get("/completed", VerifyToken, JobController.findCompleted); // get jobs that user accepted
 router.get("/labelled/:id", VerifyToken, JobController.findJobLabels); // get a complete job, with the labels as well
-router.get("/ratings/:id", JobController.findAvgLabelRatings); // get the average rating for each image, in that job
+router.get("/ratings/:id", VerifyToken, JobController.findAvgLabelRatings); // get the average rating for each image, in that job
 router.get("/export/:id", VerifyToken, JobController.exportJob); // export the job with id, with labels, to a csv file
 router.get("/:id", VerifyToken, JobController.findOne);
 
