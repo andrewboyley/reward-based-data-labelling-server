@@ -66,17 +66,6 @@ let UserController = {
     });
   },
 
-  getRating: async (userId: Mongoose.Types.ObjectId) => {
-
-	determineUserRating(userId).then((rating: number) => {
-		if (rating < 0) {
-		  return null;
-		} else {
-		  return rating;
-		}
-	  });
-  },
-
 };
 
 export default UserController;
