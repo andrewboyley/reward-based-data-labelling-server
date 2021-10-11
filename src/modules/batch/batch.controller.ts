@@ -14,7 +14,6 @@ async function removeUserLabels(
 ): Promise<boolean> {
   // remove the image labels assigned by this user to this batch
   // return a flag indicating success
-  console.log("harro");
   return await ItemController.removeUserLabels(
     batch.job,
     batch.batch_number,

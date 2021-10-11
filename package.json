@@ -7,7 +7,7 @@
     "serve": "node --version",
     "start": "tsc && nodemon",
     "build": "tsc",
-    "tests": "export NODE_ENV=test && nyc mocha --recursive --timeout 10000 --exit -r ts-node/register tests/batch.test.ts",
+    "tests": "export NODE_ENV=test && nyc mocha --recursive --timeout 10000 --exit -r ts-node/register tests/**/*.test.ts",
     "lint": "npx eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "coverage": "nyc report --reporter=text-lcov | coveralls"
   },

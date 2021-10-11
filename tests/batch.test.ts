@@ -1,4 +1,4 @@
-import chai from "chai";
+import chai, { use } from "chai";
 import chaiHttp from "chai-http";
 import rimraf from "rimraf";
 import dbHandler from "../src/db-handler";
@@ -108,7 +108,6 @@ describe("Batch functionalities", () => {
         // check response (and property values where applicable)
 
         const body = res.body[0];
-
         expect(err).to.be.null;
         expect(res).to.have.status(200);
         expect(res).to.have.header(
@@ -740,12 +739,13 @@ describe("remove user labels", () =>
       .then(async (res1) => {
         batch = res1.body;
         batch.labellers[0] = user;
-        
+        await(calculateRating(batch, user._id));
         await expect(await removeUserLabels(batch,user._id)).to.true;
         done();
       })
       .catch(done);
   })
+
 });
 
 
@@ -1530,6 +1530,7 @@ describe("Update the user reward", () => {
       })
       .catch(done);
   });
+
 });
 
 describe("Finding progress", () => {
