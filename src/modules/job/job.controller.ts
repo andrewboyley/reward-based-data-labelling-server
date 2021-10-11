@@ -317,7 +317,6 @@ let JobController = {
       .then(async (jobIDs: any) => {
         // all these jobs are completed
         // fetch these jobs and return then
-        console.log(jobIDs);
 
         const jobs = [];
 
