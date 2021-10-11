@@ -594,4 +594,44 @@ describe("User utilities", () => {
       })
       .catch(done);
   });
+
+  it("determines the user rating - no completed jobs", (done: any) => {
+    // get the user id
+    let userId: string;
+    let batchID: string;
+    var x = 0;
+    chai
+      .request(server)
+      .get("/api/auth/id")
+      .set("Content-Type", "application/json; charset=utf-8")
+      .set("Authorization", "Bearer " + userToken)
+      .then((res: any) => {
+        userId = res.body.id;
+
+        //  get the batch id
+        return chai
+          .request(server)
+          .get("/api/batch/")
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then((batches: any) => {
+        batchID = batches.body[0]._id;
+
+        // accept the batch
+        return chai
+          .request(server)
+          .put("/api/batch/labeller/" + batchID)
+          .set("Content-Type", "application/json; charset=utf-8")
+          .set("Authorization", "Bearer " + userToken);
+      })
+      .then(async(res: any) => {
+        // verify that the rating is correct
+        x= await determineUserRating(Mongoose.Types.ObjectId("123456789012"));
+        expect(x).to.equal(-1);
+        done();
+      })
+
+      .catch(done);
+  });
 });
