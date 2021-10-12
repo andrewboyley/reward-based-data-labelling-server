@@ -3,7 +3,7 @@ import Mongoose, { Schema } from "mongoose";
 import BatchController from "../batch/batch.controller";
 import BatchModel from "../batch/batch.model";
 import ItemController from "../LabelledItem/item.controller";
-import userController, { determineUserRating } from "../user/user.controller"
+import userController, { determineUserRating } from "../user/user.controller";
 import JobModel from "./job.model";
 import UserModel from "../user/user.model";
 
@@ -11,104 +11,104 @@ import fs from "fs";
 import path from "path";
 
 async function checkIfBatchIsAvailable(
-	job: any,
-	userObjectId: Mongoose.Types.ObjectId
+  job: any,
+  userObjectId: Mongoose.Types.ObjectId
 ) {
-	// find any batches that we accepted previously AND which are NOT completed
-	let batches: any = await BatchModel.find({
-		job: job._id, // get batches in the desired job
-		labellers: {
-			$elemMatch: { labeller: userObjectId, completed: false },
-		},
-	});
+  // find any batches that we accepted previously AND which are NOT completed
+  let batches: any = await BatchModel.find({
+    job: job._id, // get batches in the desired job
+    labellers: {
+      $elemMatch: { labeller: userObjectId, completed: false },
+    },
+  });
 
-	// if batches is not empty, means we have in-progress batches still - means job is not availble
-	if (batches) {
-		if (batches.length !== 0) return false;
-	} else {
-		return false;
-	}
+  // if batches is not empty, means we have in-progress batches still - means job is not availble
+  if (batches) {
+    if (batches.length !== 0) return false;
+  } else {
+    return false;
+  }
 
-	// have no in-progress batches, check if there are still batches we can accept
-	batches = await BatchController.determineAvailableBatches(
-		userObjectId,
-		job._id,
-		job.numLabellersRequired
-	);
+  // have no in-progress batches, check if there are still batches we can accept
+  batches = await BatchController.determineAvailableBatches(
+    userObjectId,
+    job._id,
+    job.numLabellersRequired
+  );
 
-	// if batches is null, an error occurred
-	// if batches array is not empty, have an available batch
-	// job is valid if it has a valid, non-empty batch
-	return batches !== null && batches.length !== 0;
+  // if batches is null, an error occurred
+  // if batches array is not empty, have an available batch
+  // job is valid if it has a valid, non-empty batch
+  return batches !== null && batches.length !== 0;
 }
 
 async function isJobCompleted(
-	jobId: Mongoose.Types.ObjectId
+  jobId: Mongoose.Types.ObjectId
 ): Promise<boolean> {
-	// we need to check that ((num batches) x (num labellers required)) batches are "completed"
+  // we need to check that ((num batches) x (num labellers required)) batches are "completed"
 
-	// get the number of batches and the number of labellers required for this job
-	const job: any = await JobModel.findById(jobId);
+  // get the number of batches and the number of labellers required for this job
+  const job: any = await JobModel.findById(jobId);
 
-	// job not found
-	if (!job) return false;
+  // job not found
+  if (!job) return false;
 
-	// job found - determine desired "completed" number
-	const desiredNumber: number = job.total_batches * job.numLabellersRequired;
+  // job found - determine desired "completed" number
+  const desiredNumber: number = job.total_batches * job.numLabellersRequired;
 
-	// count the number of completed batches for this job
-	const batches: any = await BatchModel.find({
-		job: jobId,
-		labellers: {
-			$elemMatch: {
-				completed: true,
-			},
-		},
-	});
+  // count the number of completed batches for this job
+  const batches: any = await BatchModel.find({
+    job: jobId,
+    labellers: {
+      $elemMatch: {
+        completed: true,
+      },
+    },
+  });
 
-	// no batches found
-	if (!batches || batches.length === 0) return false;
+  // no batches found
+  if (!batches || batches.length === 0) return false;
 
-	// batches found - loop through and count
-	let actualNumber: number = 0;
-	for (let batch of batches) {
-		// loop through all the labellers for this batch
-		for (let labeller of batch.labellers) {
-			// if this is "completed", increment the counter
-			if (Boolean(labeller.completed)) {
-				actualNumber++;
-			}
-		}
-	}
+  // batches found - loop through and count
+  let actualNumber: number = 0;
+  for (let batch of batches) {
+    // loop through all the labellers for this batch
+    for (let labeller of batch.labellers) {
+      // if this is "completed", increment the counter
+      if (Boolean(labeller.completed)) {
+        actualNumber++;
+      }
+    }
+  }
 
-	// have now counted the number of batches that have actually been labelled
-	// check if this is the same as the desired number
-	return actualNumber === desiredNumber;
+  // have now counted the number of batches that have actually been labelled
+  // check if this is the same as the desired number
+  return actualNumber === desiredNumber;
 }
 
 async function countCompletedJobsForUser(
-	userId: Mongoose.Types.ObjectId
+  userId: Mongoose.Types.ObjectId
 ): Promise<number> {
-	// we need to get all the jobs that have a batch labelled by the user
-	// count how many of these jobs are completed
+  // we need to get all the jobs that have a batch labelled by the user
+  // count how many of these jobs are completed
 
-	// get the job IDs that have a batch completely labelled by the current user
-	const distinctJobs = await BatchModel.distinct("job", {
-		labellers: {
-			$elemMatch: { labeller: userId, completed: true },
-		},
-	});
+  // get the job IDs that have a batch completely labelled by the current user
+  const distinctJobs = await BatchModel.distinct("job", {
+    labellers: {
+      $elemMatch: { labeller: userId, completed: true },
+    },
+  });
 
-	// for these jobs, count how many are completed
-	let counter: number = 0;
-	for (let job of distinctJobs) {
-		if (await isJobCompleted(Mongoose.Types.ObjectId(job))) {
-			// if the job is completed, increment the counter
-			counter++;
-		}
-	}
+  // for these jobs, count how many are completed
+  let counter: number = 0;
+  for (let job of distinctJobs) {
+    if (await isJobCompleted(Mongoose.Types.ObjectId(job))) {
+      // if the job is completed, increment the counter
+      counter++;
+    }
+  }
 
-	return counter;
+  return counter;
 }
 
 let JobController = {
@@ -404,91 +404,85 @@ let JobController = {
       });
   },
 
-	// return a job where each labeller of an image, had chosen the correct label
-	findAvgLabelRatings: async (
-		req: Request,
-		res: Response,
-		next: NextFunction
-	) => {
-		// 1) find the specified job
-		// 2) get the majority labels for each image
-		// 3) get the users that labelled each image correctly
-		// 4) calculate the average user rating of each user who submitted that label
-		// 5) return the average rating for each image
+  // return a job where each labeller of an image, had chosen the correct label
+  findAvgLabelRatings: async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    // 1) find the specified job
+    // 2) get the majority labels for each image
+    // 3) get the users that labelled each image correctly
+    // 4) calculate the average user rating of each user who submitted that label
+    // 5) return the average rating for each image
 
-		// make sure we have an id
-		if (!req.params.id) {
-			return res.status(422).send({
-				message: "Job ID not provided",
-			});
-		}
+    // make sure we have an id
+    if (!req.params.id) {
+      return res.status(422).send({
+        message: "Job ID not provided",
+      });
+    }
 
-		// we now have a valid request and data
-		// now we need to get the correct labels
-		// the image info
-		JobModel.findById(req.params.id).then(async (job: any) => {
-			// 		// double check we have a job
-			if (!job) {
-				return res.status(404).json({
-					message: "Job not found with id " + req.params.id,
-				});
-			}
-	
-			
-			let labellersArr = await ItemController.determineLabellersInJob(job._id);
-			
+    // we now have a valid request and data
+    // now we need to get the correct labels
+    // the image info
+    JobModel.findById(req.params.id)
+      .then(async (job: any) => {
+        // 		// double check we have a job
+        if (!job) {
+          return res.status(404).json({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
 
-			if(labellersArr == null){
-				return res.status(404).json({
-					message: "Problem getting labellers",
-				});
-			}
+        let labellersArr = await ItemController.determineLabellersInJob(
+          job._id
+        );
 
+        if (labellersArr == null) {
+          return res.status(404).json({
+            message: "Problem getting labellers",
+          });
+        }
 
-			let avgRatings= new Array<number>(labellersArr.length);
-			for (let index = 0; index < labellersArr.length; index++) {
-				avgRatings[index] = 0;
-			}
-			let imageLabellers = new Set();
-			let rating;
-			for (let index = 0; index < labellersArr.length; index++) {
-				imageLabellers = labellersArr[index];
+        let avgRatings = new Array<number>(labellersArr.length);
+        for (let index = 0; index < labellersArr.length; index++) {
+          avgRatings[index] = 0;
+        }
+        let imageLabellers = new Set();
+        let rating;
+        for (let index = 0; index < labellersArr.length; index++) {
+          imageLabellers = labellersArr[index];
 
-				for(let l of imageLabellers){
-					let str = l + "";
-					rating = await determineUserRating(Mongoose.Types.ObjectId(str));
-					if(Number.isNaN(rating)){
-						avgRatings[index] += 0;
+          for (let l of imageLabellers) {
+            let str = l + "";
+            rating = await determineUserRating(Mongoose.Types.ObjectId(str));
+            if (Number.isNaN(rating)) {
+              avgRatings[index] += 0;
+            } else {
+              avgRatings[index] += rating;
+            }
+          }
 
-					}else{
-						avgRatings[index] += rating;
+          avgRatings[index] = avgRatings[index] / imageLabellers.size;
+        }
 
-					}
-				}
-				
-				avgRatings[index] = avgRatings[index]/imageLabellers.size; 
-				
-			}
+        res.status(200).json(avgRatings);
+      })
+      .catch((err: any) => {
+        if (err.kind === "ObjectId") {
+          // something was wrong with the id - it was malformed
+          return res.status(404).send({
+            message: "Job not found with id " + req.params.id,
+          });
+        }
 
-			res.status(200).json(avgRatings);
-			
-
-		})
-		.catch((err: any) => {
-		if (err.kind === "ObjectId") {
-			// something was wrong with the id - it was malformed
-			return res.status(404).send({
-			message: "Job not found with id " + req.params.id,
-			});
-		}
-
-		//   some other error occurred
-		console.log(err);
-		return res.status(500).send({
-			message: "Error retrieving job with id " + req.params.id,
-		});
-		});
-
+        //   some other error occurred
+        console.log(err);
+        return res.status(500).send({
+          message: "Error retrieving job with id " + req.params.id,
+        });
+      });
   },
 
   // generate a csv file with the job labels
@@ -550,6 +544,8 @@ let JobController = {
           data +=
             "image_filename" +
             fieldDelimiter +
+            "original_filename" +
+            fieldDelimiter +
             "first_label" +
             arrayDelimiter +
             "second_label" +
@@ -560,7 +556,11 @@ let JobController = {
           for (let i = 0; i < images.length; i++) {
             const image = images[i];
             // write the filename
-            let imageString = image.value + fieldDelimiter;
+            let imageString =
+              image.value +
+              fieldDelimiter +
+              image.originalname +
+              fieldDelimiter;
             for (let assignedLabel of image.assignedLabels) {
               // write the labels in order
               imageString += assignedLabel + arrayDelimiter;
