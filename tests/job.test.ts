@@ -255,7 +255,7 @@ describe("GET /job", () => {
 			});
 	});
 
-	it("Retrives all authored jobs", (done: any) => {
+	it("Retrieves all authored jobs", (done: any) => {
 		// get all the jobs I made
 		chai
 			.request(server)
@@ -451,6 +451,72 @@ describe("GET /job", () => {
 			expect(batchBody.labellers).to.deep.equal([]);
 		}
 	});
+
+	it("Retrieves all completed jobs", async () => {
+		const acceptUser: any = {
+			firstName: "Some",
+			surname: "One",
+			email: "someone1@example.com",
+			password: "someHash",
+		};
+
+		let response: ChaiHttp.Response = await chai
+			.request(server)
+			.post("/api/auth/register")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.send(acceptUser);
+
+		// get the user token
+		const acceptToken = response.body.token;
+
+		// convert the token to an id
+		response = await chai
+			.request(server)
+			.get("/api/auth/id")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + acceptToken)
+			.send();
+
+		const acceptId: string = response.body.id;
+
+		// accept the job as this user
+		response = await chai
+			.request(server)
+			.put(endpoint + "/labeller/" + dummyJobId)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + acceptToken)
+			.send();
+
+		// get the batch for the job
+		response = await chai
+			.request(server)
+			.get("/api/batch/")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + acceptToken)
+			.send();
+		const batch = response.body[0];
+
+		// complete the batch for the job
+		response = await chai
+			.request(server)
+			.put("/api/batch/complete/" + batch._id)
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + acceptToken)
+			.send();
+
+		// get the completed jobs
+		response = await chai
+			.request(server)
+			.get(endpoint + "/completed")
+			.set("Content-Type", "application/json; charset=utf-8")
+			.set("Authorization", "Bearer " + acceptToken)
+			.send();
+
+		expect(response.status).to.equal(200);
+
+
+		expect(response.body[0]._id).to.equal(dummyJobId);
+	})
 
 	it("Retrieves the 'assigned' labels for a job - successful", (done: any) => {
 		const labels = ["one", "two"];
@@ -1966,3 +2032,6 @@ describe("Job utility functions", () => {
 			.catch(done);
 	});
 });
+
+
+
