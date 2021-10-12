@@ -417,18 +417,18 @@ let JobController = {
     // 5) return the average rating for each image
 
     // make sure we have an id
-    if (!req.params.id) {
-      return res.status(422).send({
-        message: "Job ID not provided",
-      });
-    }
+    // if (!req.params.id) {
+    //   return res.status(422).send({
+    //     message: "Job ID not provided",
+    //   });
+    // }
 
     // we now have a valid request and data
     // now we need to get the correct labels
     // the image info
     JobModel.findById(req.params.id)
       .then(async (job: any) => {
-        // 		// double check we have a job
+        // double check we have a job
         if (!job) {
           return res.status(404).json({
             message: "Job not found with id " + req.params.id,
@@ -457,11 +457,7 @@ let JobController = {
           for (let l of imageLabellers) {
             let str = l + "";
             rating = await determineUserRating(Mongoose.Types.ObjectId(str));
-            if (Number.isNaN(rating)) {
-              avgRatings[index] += 0;
-            } else {
-              avgRatings[index] += rating;
-            }
+            avgRatings[index] += rating;
           }
 
           avgRatings[index] = avgRatings[index] / imageLabellers.size;
@@ -472,7 +468,7 @@ let JobController = {
       .catch((err: any) => {
         if (err.kind === "ObjectId") {
           // something was wrong with the id - it was malformed
-          return res.status(404).send({
+          return res.status(422).send({
             message: "Job not found with id " + req.params.id,
           });
         }
