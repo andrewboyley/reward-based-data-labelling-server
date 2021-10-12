@@ -404,72 +404,6 @@ let JobController = {
       });
   },
 
-	
-// 	// make sure we have an id
-// 	if (!req.params.id) {
-// 		return res.status(422).send({
-// 		message: "Job ID not provided",
-// 		});
-// 	}
-
-//   	// get job
-//   	JobModel.findById(req.params.id).then(async (job: any) => {
-// 		// double check we have a job
-// 		if (!job) {
-// 		return res.status(404).json({
-// 			message: "Job not found with id " + req.params.id,
-// 		});
-// 		}
-
-// 		// get job
-// 		JobModel.findById(req.params.id)
-// 			.then(async (job: any) => {
-// 				// double check we have a job
-// 				if (!job) {
-// 					return res.status(404).json({
-// 						message: "Job not found with id " + req.params.id,
-// 					});
-// 				}
-
-// 				// we have the job - check that we are the author of this job
-// 				if (String(job.author) !== req.body.userId) {
-// 					// we are not the author - can't view the job labels
-// 					return res.status(401).json({
-// 						message: "You are not authorised to view this job's labels",
-// 					});
-// 				}
-
-// 				// we now have a valid request and data
-// 				// now we need to get the images with the correct labels
-// 				job = job.toObject();
-// 				let images = await ItemController.determineImageLabelsInJob(job._id);
-
-// 				if (images) {
-// 					job.images = images;
-// 					res.status(200).json(job);
-// 				} else {
-// 					// images is null - error occurred
-// 					res.status(500).json({
-// 						message:
-// 							"An error occurred while processing the labels for this job",
-// 					});
-// 				}
-// 			})
-// 			.catch((err: any) => {
-// 				if (err.kind === "ObjectId") {
-// 					// something was wrong with the id - it was malformed
-// 					return res.status(404).send({
-// 						message: "Job not found with id " + req.params.id,
-// 					});
-// 				}
-
-// 				// some other error occurred
-// 				return res.status(500).send({
-// 					message: "Error retrieving job with id " + req.params.id,
-// 				});
-// 			});
-// 	},
-
 	// return a job where each labeller of an image, had chosen the correct label
 	findAvgLabelRatings: async (
 		req: Request,
@@ -501,45 +435,41 @@ let JobController = {
 			}
 	
 			
-			let correctLabellersArr = await ItemController.determineCorrectLabllersInJob(job._id);
+			let labellersArr = await ItemController.determineLabellersInJob(job._id);
+			
 
-			if(correctLabellersArr == null){
+			if(labellersArr == null){
 				return res.status(404).json({
-					message: "Problem getting correct labellers",
+					message: "Problem getting labellers",
 				});
 			}
 
-			let avgRatings= new Array<number>(correctLabellersArr.length);
-			for (let index = 0; index < correctLabellersArr.length; index++) {
+
+			let avgRatings= new Array<number>(labellersArr.length);
+			for (let index = 0; index < labellersArr.length; index++) {
 				avgRatings[index] = 0;
 			}
-			let correctLabellers = [];
+			let imageLabellers = new Set();
 			let rating;
-			for (let index = 0; index < correctLabellersArr.length; index++) {
-				correctLabellers = correctLabellersArr[index];
+			for (let index = 0; index < labellersArr.length; index++) {
+				imageLabellers = labellersArr[index];
 
-				for (let i = 0; i < correctLabellers.length; i++) {
-					// await UserModel.findById(Mongoose.Types.ObjectId(correctLabellers[i]))
-					// .then((response: any): any => {
-					// 	rating = response.rating;
-					// 	avgRatings[index]+= rating;
+				for(let l of imageLabellers){
+					let str = l + "";
+					rating = await determineUserRating(Mongoose.Types.ObjectId(str));
+					if(Number.isNaN(rating)){
+						avgRatings[index] += 0;
 
-					// })
-					rating = await determineUserRating(Mongoose.Types.ObjectId(correctLabellers[i]));
-					
-					avgRatings[index]+= rating;
+					}else{
+						avgRatings[index] += rating;
 
-
-				}
-				if(correctLabellers.length == 0){
-					avgRatings[index] = 0;
-
-				}else{
-					avgRatings[index] = avgRatings[index]/correctLabellers.length; 
-
+					}
 				}
 				
+				avgRatings[index] = avgRatings[index]/imageLabellers.size; 
+				
 			}
+
 			res.status(200).json(avgRatings);
 			
 
