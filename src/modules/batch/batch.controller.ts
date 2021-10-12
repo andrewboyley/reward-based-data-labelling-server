@@ -544,11 +544,9 @@ let BatchController = {
             .status(404)
             .send({ message: "Job not found with ID " + req.params.id });
         }
-        console.log(job);
 
         let reward = job.rewards / job.numLabellersRequired / job.total_batches;
 
-        console.log(reward);
         // return the reward amount
         return res.status(200).json(reward);
       })
