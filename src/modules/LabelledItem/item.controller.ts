@@ -46,18 +46,8 @@ function determineSortedImageLabels(image: any) {
 	});
 }
 
-//returns an array of just the correct labels for each image
-function determineCorrectImageLabelsInJob(
-	jobId: Mongoose.Types.ObjectId,
-	images: any
-) {
-	let correctLabels = new Array<string>(images.length);
-	for (let i = 0; i < images.length; i++) {
-		correctLabels[i] = images[i].assignedLabels[0];
-	}
 
-	return correctLabels;
-}
+
 
 let ItemController = {
 	getLabelFrequencies(image: any) {
@@ -290,10 +280,8 @@ let ItemController = {
 	},
 
 	//returns an array only with the labellers who chose the majority label for each image
-	determineCorrectLabllersInJob: async (jobId: Mongoose.Types.ObjectId) => {
+	determineLabellersInJob: async (jobId: Mongoose.Types.ObjectId) => {
 		let images = await ItemController.determineImageLabelsInJob(jobId);
-
-		let correctLabels = determineCorrectImageLabelsInJob(jobId, images);
 
 		// get all the images
 		let fullImageInfo: any = await LabelledItemModel.find({
@@ -306,37 +294,27 @@ let ItemController = {
 		}
 
 		//We get the number of labellers required for this job
-		let fullJob: any = await JobModel.find({
-			_id: jobId,
-		});
-
-		let numLabellers = fullJob[0].numLabellersRequired;
 		let image, labelInfo;
-		let correctLabellers = [];
-		let temp = [];
+		let labellers = [];
+		let temp = new Set();
 
 
 		for (let index = 0; index < fullImageInfo.length; index++) {
 			image = fullImageInfo[index];
-			temp = [];
-			// console.log(image);
-			for (let i = 0; i < numLabellers; i++) {
-				labelInfo = image.labels[i];
-				for (let j = 0; j < labelInfo.value.length; j++) {//labeller may have submitted many labels
-					if (labelInfo.value[j] == correctLabels[index]) {
-						temp.push(labelInfo.labeller);
-					}
+			temp = new Set();
 
-				}
+			for (let i = 0; i < image.labels.length; i++) {
+				labelInfo = image.labels[i];
+				let labeller = labelInfo.labeller;
+				temp.add(labeller);
 			}
 
-			correctLabellers.push(temp);
+			labellers.push(temp);
 		}
 
-		return correctLabellers;
+		return labellers;
 	}
 };
 
 export default ItemController;
-export { determineSortedImageLabels };
-export { determineCorrectImageLabelsInJob };
+export { determineSortedImageLabels};

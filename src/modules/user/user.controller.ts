@@ -11,7 +11,13 @@ async function determineUserRating(
   if (!user) return -1;
 
   let rating: number = user.rating;
-  rating /= await countCompletedJobsForUser(userId);
+
+  const count = await countCompletedJobsForUser(userId);
+  if (count === 0) {
+    rating = 0;
+  } else {
+    rating /= count;
+  }
 
   return rating;
 }
@@ -36,6 +42,7 @@ let UserController = {
         });
       });
   },
+
   getLeaderboard: async (req: Request, res: Response, next: NextFunction) => {
     User.find({})
       .sort({ rewardCount: -1 })
@@ -55,7 +62,7 @@ let UserController = {
   findRating: async (req: Request, res: Response, next: NextFunction) => {
     // use the user id to get the stored rating
     // divide this by a call to determine the number of compelted jobs this user has taken part in
-    determineUserRating(req.body.userId).then((rating: number) => {
+    await determineUserRating(req.body.userId).then((rating: number) => {
       if (rating < 0) {
         return res.status(500).send({
           message: "An error occurred trying to calculate the user's rating",
@@ -68,3 +75,4 @@ let UserController = {
 };
 
 export default UserController;
+export { determineUserRating };
