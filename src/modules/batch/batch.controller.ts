@@ -787,7 +787,7 @@ async function manageExpiry() {
 }
 
 // every 15 minutes, check if a batch has expired
-const intervalMinutes = 15;
+const intervalMinutes = 2;
 setInterval(manageExpiry, intervalMinutes * 60 * 1000); // convert to milliseconds
 
 export default BatchController;
